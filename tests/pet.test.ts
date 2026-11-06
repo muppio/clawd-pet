@@ -1,5 +1,5 @@
 import { expect, test } from 'claude-code/testing'
-import type { On } from 'claude-code'
+import type { CommandRunInput, On } from 'claude-code'
 
 // Nothing sits beneath the mod in a test: these hooks stand in for the engine
 // (the filesystem, processes, the environment), and record what the mod did.
@@ -83,6 +83,11 @@ function engine(on: On, overrides: Partial<Fake> = {}): Fake {
 
 const start = { cwd: '/Users/tester/code/my-app', surface: 'desktop', isInteractive: true } as const
 
+// The person typing `/pet <args>`, with the origin and layout the engine stamps.
+const pet = (args: string): CommandRunInput => ({
+  command: 'pet', args, origin: { kind: 'composer' }, presentation: { isFullscreen: false, columns: 80 },
+})
+
 test('a turn walks Clawd through working, the tool, then done', async ($, on) => {
   const fake = engine(on)
   await $.session.start(start)
@@ -142,12 +147,12 @@ test('/pet opens Clawd when he is away, and sends him home when he is out', asyn
   const fake = engine(on, { running: false })
   await $.session.start(start)
 
-  const opened = await $.command.run({ command: 'pet', args: '' })
+  const opened = await $.command.run(pet(''))
   expect(opened.text).toContain('Clawd is on your screen')
   expect(fake.runs).toContainEqual(['open', '/Users/tester/Applications/Clawd Pet.app'])
 
   fake.running = true
-  const closed = await $.command.run({ command: 'pet', args: '' })
+  const closed = await $.command.run(pet(''))
   expect(closed.text).toContain('Clawd went home')
   expect(fake.runs).toContainEqual(['pkill', '-x', 'ClawdPet'])
 })
@@ -156,7 +161,7 @@ test('/pet installs the prebuilt app the first time, no Xcode needed', async ($,
   const fake = engine(on, { running: false, installed: false, bundled: 'abc123', installedBuild: '' })
   await $.session.start(start)
 
-  const opened = await $.command.run({ command: 'pet', args: '' })
+  const opened = await $.command.run(pet(''))
   expect(opened.text).toContain('Clawd is on your screen')
   expect(fake.runs.some(r => r[0] === 'ditto' && (r[3] ?? '').endsWith('/app/dist/ClawdPet.zip'))).toBe(true)
   expect(fake.runs.some(r => (r[1] ?? '').endsWith('/app/build.sh'))).toBe(false)
@@ -167,11 +172,11 @@ test('/pet updates an older install and leaves a current one alone', async ($, o
   const fake = engine(on, { running: false, bundled: 'new-build', installedBuild: 'old-build' })
   await $.session.start(start)
 
-  await $.command.run({ command: 'pet', args: '' })
+  await $.command.run(pet(''))
   expect(fake.runs.filter(r => r[0] === 'ditto').length).toBe(1)
 
   fake.installedBuild = 'new-build'
-  await $.command.run({ command: 'pet', args: '' })
+  await $.command.run(pet(''))
   expect(fake.runs.filter(r => r[0] === 'ditto').length).toBe(1)
 })
 
@@ -179,7 +184,7 @@ test('/pet builds from source when this copy ships no prebuilt app', async ($, o
   const fake = engine(on, { running: false, installed: false })
   await $.session.start(start)
 
-  await $.command.run({ command: 'pet', args: '' })
+  await $.command.run(pet(''))
   expect(fake.runs.some(r => r[0] === '/bin/zsh' && (r[1] ?? '').endsWith('/app/build.sh'))).toBe(true)
 })
 
@@ -187,12 +192,12 @@ test('/pet fight spars only when the Codex pet is out', async ($, on) => {
   const fake = engine(on, { running: true, codexOut: false })
   await $.session.start(start)
 
-  const missing = await $.command.run({ command: 'pet', args: 'fight' })
+  const missing = await $.command.run(pet('fight'))
   expect(missing.text).toContain("Codex pet isn't on screen")
   expect(fake.runs).not.toContainEqual(['open', 'clawdpet://fight'])
 
   fake.codexOut = true
-  const ding = await $.command.run({ command: 'pet', args: 'fight' })
+  const ding = await $.command.run(pet('fight'))
   expect(ding.text).toContain('Ding ding')
   expect(fake.runs).toContainEqual(['open', 'clawdpet://fight'])
 })
@@ -201,11 +206,11 @@ test('/pet rebuild runs the build, and unknown options are explained', async ($,
   const fake = engine(on)
   await $.session.start(start)
 
-  const rebuilt = await $.command.run({ command: 'pet', args: 'rebuild' })
+  const rebuilt = await $.command.run(pet('rebuild'))
   expect(rebuilt.text).toContain('rebuilt')
   expect(fake.runs.some(r => (r[1] ?? '').endsWith('/app/build.sh'))).toBe(true)
 
-  const unknown = await $.command.run({ command: 'pet', args: 'dance' })
+  const unknown = await $.command.run(pet('dance'))
   expect(unknown.text).toContain('Unknown option')
 })
 
@@ -240,13 +245,13 @@ test('on Windows, /pet starts ClawdPet.exe and sends him home with taskkill', as
   const fake = engine(on, { windows: true, running: false })
   await $.session.start(winStart)
 
-  const opened = await $.command.run({ command: 'pet', args: '' })
+  const opened = await $.command.run(pet(''))
   expect(opened.text).toContain('Clawd is on your screen')
   expect(opened.text).toContain('Ctrl+Alt+C')
   expect(fake.runs.some(r => script(r) === `Start-Process -FilePath '${WIN_EXE}'`)).toBe(true)
 
   fake.running = true
-  const closed = await $.command.run({ command: 'pet', args: '' })
+  const closed = await $.command.run(pet(''))
   expect(closed.text).toContain('Clawd went home')
   expect(fake.runs).toContainEqual(['taskkill.exe', '/IM', 'ClawdPet.exe', '/F'])
   expect(fake.runs.some(r => MAC_ONLY.includes(r[0] ?? ''))).toBe(false)
@@ -256,7 +261,7 @@ test('on Windows, /pet installs the bundled app into %LOCALAPPDATA% once, no .NE
   const fake = engine(on, { windows: true, running: false, installed: false, bundled: 'win-1', installedBuild: '' })
   await $.session.start(winStart)
 
-  const opened = await $.command.run({ command: 'pet', args: '' })
+  const opened = await $.command.run(pet(''))
   expect(opened.text).toContain('Clawd is on your screen')
   const unpacks = () => fake.runs.filter(r => script(r).includes('Expand-Archive'))
   expect(unpacks().length).toBe(1)
@@ -266,7 +271,7 @@ test('on Windows, /pet installs the bundled app into %LOCALAPPDATA% once, no .NE
 
   fake.installed = true
   fake.installedBuild = 'win-1'
-  await $.command.run({ command: 'pet', args: '' })
+  await $.command.run(pet(''))
   expect(unpacks().length).toBe(1)
 })
 
@@ -274,13 +279,13 @@ test('on Windows, /pet fight checks for the Codex pet before sending Clawd', asy
   const fake = engine(on, { windows: true, running: true, codexOut: false })
   await $.session.start(winStart)
 
-  const missing = await $.command.run({ command: 'pet', args: 'fight' })
+  const missing = await $.command.run(pet('fight'))
   expect(missing.text).toContain("Codex pet isn't on screen")
   expect(fake.runs).toContainEqual([WIN_EXE, '--codex-check'])
   expect(fake.runs.some(r => script(r).includes('clawdpet://fight'))).toBe(false)
 
   fake.codexOut = true
-  const ding = await $.command.run({ command: 'pet', args: 'fight' })
+  const ding = await $.command.run(pet('fight'))
   expect(ding.text).toContain('Ding ding')
   expect(fake.runs.some(r => script(r) === `Start-Process -FilePath '${WIN_EXE}' -ArgumentList 'clawdpet://fight'`)).toBe(true)
 })
@@ -290,10 +295,10 @@ test('on Windows, /pet rebuild and a missing app build from windows/ with build.
   await $.session.start(winStart)
   const builds = () => fake.runs.filter(r => r[0] === 'powershell.exe' && (r[r.length - 1] ?? '').endsWith('\\windows\\build.ps1'))
 
-  await $.command.run({ command: 'pet', args: '' })
+  await $.command.run(pet(''))
   expect(builds().length).toBe(1)
 
-  const rebuilt = await $.command.run({ command: 'pet', args: 'rebuild' })
+  const rebuilt = await $.command.run(pet('rebuild'))
   expect(rebuilt.text).toContain('rebuilt')
   expect(builds().length).toBe(2)
   expect(fake.runs.some(r => MAC_ONLY.includes(r[0] ?? ''))).toBe(false)
@@ -307,7 +312,7 @@ test('on Windows, /pet downloads the pinned release, checks its SHA-256 and inst
   const fake = engine(on, { windows: true, running: false, installed: false, release: RELEASE })
   await $.session.start(winStart)
 
-  const opened = await $.command.run({ command: 'pet', args: '' })
+  const opened = await $.command.run(pet(''))
   expect(opened.text).toContain('Clawd is on your screen')
   const downloads = () => fake.runs.filter(r => script(r).includes('Invoke-WebRequest'))
   expect(downloads().length).toBe(1)
@@ -323,7 +328,7 @@ test('on Windows, /pet downloads the pinned release, checks its SHA-256 and inst
   // Already on that build: no second download.
   fake.installed = true
   fake.installedBuild = 'win-2'
-  await $.command.run({ command: 'pet', args: '' })
+  await $.command.run(pet(''))
   expect(downloads().length).toBe(1)
 })
 
@@ -331,7 +336,7 @@ test('on Windows, a failed download is explained and a bad release.json is ignor
   const fake = engine(on, { windows: true, running: false, installed: false, release: RELEASE, downloadFails: true })
   await $.session.start(winStart)
 
-  const failed = await $.command.run({ command: 'pet', args: '' })
+  const failed = await $.command.run(pet(''))
   expect(failed.text).toContain("Couldn't download Clawd for Windows: Invoke-WebRequest : Unable to connect")
   expect(failed.text).toContain('type /pet again')
   expect(fake.runs.some(r => script(r).startsWith('Start-Process'))).toBe(false)
@@ -344,7 +349,7 @@ test('on Windows, a failed download is explained and a bad release.json is ignor
   ]) {
     fake.runs.length = 0
     fake.release = bad
-    await $.command.run({ command: 'pet', args: '' })
+    await $.command.run(pet(''))
     expect(fake.runs.some(r => script(r).includes('Invoke-WebRequest'))).toBe(false)
     expect(fake.runs.some(r => (r[r.length - 1] ?? '').endsWith('\\windows\\build.ps1'))).toBe(true)
   }
