@@ -87,7 +87,10 @@ body:
       label: Logs and screenshots
       description: |
         Paste any message `/pet` printed, and drag in screenshots or a screen recording.
-        On Windows, `%USERPROFILE%\.clawd-pet\error.log` helps. If sparring is the problem on Windows, add what `ClawdPet.exe --codex-windows` prints.
+        On Windows, `%USERPROFILE%\.clawd-pet\error.log` helps.
+        If Clawd doesn't reach the Codex pet, add what this prints:
+        - Mac: `~/Applications/Clawd\ Pet.app/Contents/MacOS/ClawdPet --codex-debug`
+        - Windows (PowerShell): `& "$env:LOCALAPPDATA\ClawdPet\ClawdPet.exe" --codex-windows | Out-String`
         If Clawd crashed on a Mac, a crash report from Console.app (search for ClawdPet) helps.
     validations:
       required: false
