@@ -4,6 +4,12 @@ All notable changes to Clawd Pet are listed here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Mac: when a spoken reply arrived all at once instead of streaming in, Clawd read only its last sentence aloud. He now reads the whole reply, as he does on Windows.
+
 ## [0.3.1] - 2026-11-06
 
 ### Fixed

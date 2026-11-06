@@ -1091,7 +1091,15 @@ final class PetModel: ObservableObject {
                 defaults.set(session, forKey: "sessionID")
             }
             if bubble?.kind == .chat {
-                if bubble?.body.isEmpty == true, let result { bubble?.body = result; if replySpoken { chunker = SentenceChunker(); _ = chunker.feed(result) } }
+                if bubble?.body.isEmpty == true, let result {
+                    // Nothing streamed: show the whole reply, and read all of it
+                    // aloud (feed's full sentences, then flush's remainder below).
+                    bubble?.body = result
+                    if replySpoken {
+                        chunker = SentenceChunker()
+                        for s in chunker.feed(result) { speaker.say(s) }
+                    }
+                }
                 bubble?.status = "Claude"
             }
             if replySpoken { for s in chunker.flush() { speaker.say(s) } }
