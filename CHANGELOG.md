@@ -4,11 +4,12 @@ All notable changes to Clawd Pet are listed here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.3.2] - 2026-11-06
 
 ### Fixed
 
 - Mac: when a spoken reply arrived all at once instead of streaming in, Clawd read only its last sentence aloud. He now reads the whole reply, as he does on Windows.
+- With **Spar now and then** on, a match Clawd started on his own while the Codex pet was on another screen showed "Too far to spar" out of nowhere, every 20 to 40 minutes, and kept him from napping. Now he quietly skips that match. He still tells you when you ask for a fight.
 
 ## [0.3.1] - 2026-11-06
 

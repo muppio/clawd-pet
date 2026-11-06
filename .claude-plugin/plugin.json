@@ -1,6 +1,6 @@
 {
   "name": "clawd-pet",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Clawd, a floating pixel buddy beside the Codex pet: type, dictate or talk voice-to-voice with Claude, watch him react as Claude works, and spar with the Codex pet. /pet summons him. Runs on macOS and Windows.",
   "author": {
     "name": "muppio"
