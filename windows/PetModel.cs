@@ -661,8 +661,6 @@ sealed class PetModel
             }
             return;
         }
-        Poke();
-
         // Work in the DIPs of the monitor Clawd is on, with its top-left at 0,0.
         var (petTopLeft, monitor, scale) = frame;
         Point ToArena(Point p) => new((p.X - monitor.Left) / scale, (p.Y - monitor.Top) / scale);
@@ -672,20 +670,24 @@ sealed class PetModel
         var clawdCenter = new Point(home.X + Pet.PetWidth / 2, home.Y + Pet.PetHeight / 2);
         var target = ToArena(codexCenter.Value);
         var inner = new Rect(20, 20, Math.Max(0, screen.Width - 40), Math.Max(0, screen.Height - 40));
-        if (!inner.Contains(target))
+        if (!inner.Contains(target)) // the Codex pet is on another screen
         {
-            var far = new Bubble(
-                BubbleKind.Code,
-                "Too far to spar",
-                Body: "The Codex pet is on another screen. Drag Clawd over to it, then try again. 🥊");
-            Bubble = far;
-            Flash(Mood.Alert, 2);
-            Later.After(10, () =>
+            if (!onlyIfCodexIsOut) // a match he started on his own just doesn't happen
             {
-                if (Bubble?.Id == far.Id) Bubble = null;
-            });
+                var far = new Bubble(
+                    BubbleKind.Code,
+                    "Too far to spar",
+                    Body: "The Codex pet is on another screen. Drag Clawd over to it, then try again. 🥊");
+                Bubble = far;
+                Flash(Mood.Alert, 2);
+                Later.After(10, () =>
+                {
+                    if (Bubble?.Id == far.Id) Bubble = null;
+                });
+            }
             return;
         }
+        Poke();
 
         double dir = target.X < clawdCenter.X ? -1 : 1;
         double spotY = Math.Abs(target.Y - clawdCenter.Y) > 120 ? target.Y - Pet.PetHeight / 2 : home.Y;

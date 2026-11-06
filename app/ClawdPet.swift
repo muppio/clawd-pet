@@ -1334,7 +1334,6 @@ final class PetModel: ObservableObject {
             }
             return
         }
-        poke()
         let sf = screen.frame
         let toArena = { (p: CGPoint) in CGPoint(x: p.x - sf.minX, y: sf.maxY - p.y) }
 
@@ -1347,16 +1346,19 @@ final class PetModel: ObservableObject {
             CGRect(origin: .zero, size: sf.size).insetBy(dx: 20, dy: 20).contains(p) ? p : nil
         }
         guard let target = codex else { // the Codex pet is on another screen
-            let far = Bubble(
-                kind: .code,
-                status: "Too far to spar",
-                body: "The Codex pet is on another screen. Drag Clawd over to it, then try again. 🥊"
-            )
-            bubble = far
-            flash(.alert, 2)
-            after(10) { [weak self] in if self?.bubble?.id == far.id { self?.bubble = nil } }
+            if !onlyIfCodexIsOut { // a match he started on his own just doesn't happen
+                let far = Bubble(
+                    kind: .code,
+                    status: "Too far to spar",
+                    body: "The Codex pet is on another screen. Drag Clawd over to it, then try again. 🥊"
+                )
+                bubble = far
+                flash(.alert, 2)
+                after(10) { [weak self] in if self?.bubble?.id == far.id { self?.bubble = nil } }
+            }
             return
         }
+        poke()
         let dir: CGFloat = target.x < clawdCenter.x ? -1 : 1
         let spotY = abs(target.y - clawdCenter.y) > 120 ? target.y - petH / 2 : home.y
         let spot = CGPoint(x: target.x - dir * 74 - petW / 2, y: spotY)
