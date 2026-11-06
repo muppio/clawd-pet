@@ -1,0 +1,14 @@
+{
+  "name": "clawd-pet",
+  "description": "Clawd Pet: a pixel Clawd for Claude Code who lives next to your Codex pet",
+  "owner": {
+    "name": "muppio"
+  },
+  "plugins": [
+    {
+      "name": "clawd-pet",
+      "source": "./",
+      "description": "Clawd, a floating pixel buddy beside the Codex pet: type, dictate or talk voice-to-voice with Claude, watch him react as Claude works, and spar with the Codex pet. /pet summons him. Runs on macOS and Windows."
+    }
+  ]
+}

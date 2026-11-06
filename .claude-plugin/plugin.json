@@ -1,0 +1,19 @@
+{
+  "name": "clawd-pet",
+  "version": "0.3.0",
+  "description": "Clawd, a floating pixel buddy beside the Codex pet: type, dictate or talk voice-to-voice with Claude, watch him react as Claude works, and spar with the Codex pet. /pet summons him. Runs on macOS and Windows.",
+  "author": {
+    "name": "muppio"
+  },
+  "license": "MIT",
+  "keywords": [
+    "pet",
+    "clawd",
+    "voice",
+    "macos",
+    "windows",
+    "codex",
+    "companion"
+  ],
+  "icon": "./.claude-plugin/icon.png"
+}

@@ -1,0 +1,27 @@
+name: Idea
+description: Suggest something new for Clawd.
+title: "[Idea] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: The idea
+      description: What should Clawd do?
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: Why would it be fun or useful?
+    validations:
+      required: true
+
+  - type: textarea
+    id: mockup
+    attributes:
+      label: Mockup
+      description: Optional. A sketch, screenshot or GIF. Drag images in here.
+    validations:
+      required: false

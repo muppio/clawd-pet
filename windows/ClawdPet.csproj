@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Clawd Pet for Windows: the same buddy as app/ClawdPet.swift, in WPF.
+    build.ps1 publishes it self-contained (no .NET needed on the PC) and
+    release.ps1 makes the zip /pet installs. EnableWindowsTargeting lets the
+    project build on macOS/Linux too, which is only useful to check it compiles.
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>12</LangVersion>
+    <AssemblyName>ClawdPet</AssemblyName>
+    <RootNamespace>ClawdPet</RootNamespace>
+    <StartupObject>ClawdPet.Program</StartupObject>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>ClawdPet.ico</ApplicationIcon>
+    <Product>Clawd Pet</Product>
+    <Description>Clawd, a floating pixel buddy for Claude Code (unofficial fan project)</Description>
+    <Version>0.3.0</Version>
+    <Copyright>MIT License</Copyright>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Windows' own offline speech recognizer and SAPI voices. -->
+    <PackageReference Include="System.Speech" Version="8.0.0" />
+  </ItemGroup>
+
+</Project>

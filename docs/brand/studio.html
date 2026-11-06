@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clawd Pet studio</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Jersey+10&display=swap">
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; height: 100%; background: #0E1117; overflow: hidden; }
+  body.clear { background: transparent; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+  nav { position: fixed; left: 8px; bottom: 8px; display: flex; gap: 6px; font: 600 12px/1 "JetBrains Mono", monospace; }
+  nav a { color: #E8EBF1; background: rgba(0, 0, 0, 0.55); padding: 6px 8px; border-radius: 6px; text-decoration: none; }
+  body.render nav { display: none; }
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<nav id="nav"></nav>
+<script src="../art.js"></script>
+<script>
+// The brand studio draws Clawd Pet's README pictures, one frame at a time, with the
+// website's own art (../art.js). render.mjs sizes the window to a scene, calls
+// studio.render(scene, t) for every frame and screenshots it.
+// Open it on its own to watch a scene: studio.html?scene=talk (add &t=3 to freeze a frame).
+window.studio = (() => {
+  "use strict";
+  const A = window.ClawdArt;
+  const { C, POP, COMP, MONO, PIXEL, prep, rr, paintClawd, paintGlyph, paintCodex, codexImg, paintCloud, paintTag, paintBar } = A;
+  const SANS = '"Figtree", ui-sans-serif, system-ui, sans-serif';
+  const SERIF = 'ui-serif, "New York", "Iowan Old Style", Georgia, serif';
+  const INK = "#F3F3F5", DIM = "rgba(255,255,255,0.46)", CREAM = "#F6EDE8", PEACH = "#F0A283";
+  const cv = document.getElementById("cv");
+  const ease = (x) => { const c = Math.min(1, Math.max(0, x)); return c * c * (3 - 2 * c); };
+
+  // ---------- shared bits ----------
+  function wall(ctx, w, h) {
+    const g = ctx.createLinearGradient(0, 0, w * 0.6, h * 1.2);
+    g.addColorStop(0, "#1A2236");
+    g.addColorStop(1, "#2B1F35");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+  }
+  function dots(ctx, w, h, step) {
+    ctx.fillStyle = "rgba(255,255,255,0.045)";
+    for (let y = step / 2; y < h; y += step) for (let x = step / 2; x < w; x += step) ctx.fillRect(Math.round(x), Math.round(y), 2, 2);
+  }
+  // Clawd's body (14 by 9 cells) with its top-left corner at x, y.
+  function clawdAt(ctx, px, look, t, x, y) { paintClawd(ctx, px, look, t, x - px, y - 3 * px); }
+  function brand(ctx, x, y, size) {
+    const px = Math.max(2, Math.round(size / 10));
+    clawdAt(ctx, px, { mood: "idle", calm: true }, 0, x, y + (size - 9 * px) / 2);
+    ctx.save();
+    ctx.font = `400 ${size * 1.25}px ${PIXEL}`;
+    ctx.fillStyle = CREAM;
+    ctx.textBaseline = "middle";
+    ctx.fillText("Clawd Pet", x + 14 * px + size * 0.4, y + size / 2 + size * 0.06);
+    ctx.restore();
+  }
+  function pill(ctx, text, x, y, size, opts = {}) {
+    ctx.save();
+    ctx.font = `${opts.weight || 600} ${size}px ${opts.font || MONO}`;
+    const padX = size * 0.8, h = size * 2;
+    const w = ctx.measureText(text).width + padX * 2;
+    const left = opts.align === "right" ? x - w : opts.align === "center" ? x - w / 2 : x;
+    rr(ctx, left, y, w, h, h / 2);
+    ctx.fillStyle = opts.fill || "rgba(255,255,255,0.07)";
+    ctx.fill();
+    ctx.strokeStyle = opts.stroke || "rgba(255,255,255,0.12)";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.fillStyle = opts.color || INK;
+    ctx.textBaseline = "middle";
+    ctx.fillText(text, left + padX, y + h / 2 + 1);
+    ctx.restore();
+    return w;
+  }
+  function sticker(ctx, word, x, y, size, angle, fill) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+    ctx.font = `400 ${size}px ${PIXEL}`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.lineJoin = "round";
+    ctx.lineWidth = size * 0.2;
+    ctx.strokeStyle = "#1B1512";
+    ctx.strokeText(word, 0, 0);
+    ctx.fillStyle = fill || POP;
+    ctx.fillText(word, 0, 0);
+    ctx.restore();
+  }
+  function label(ctx, text, x, y, size, color, align) {
+    ctx.save();
+    ctx.font = `600 ${size}px ${SANS}`;
+    ctx.fillStyle = color || DIM;
+    ctx.textAlign = align || "center";
+    ctx.textBaseline = "alphabetic";
+    ctx.fillText(text, x, y);
+    ctx.restore();
+  }
+
+  // ---------- scenes ----------
+  const scenes = {};
+
+  // The spar, with a running score. One round: Clawd wins.
+  scenes.spar = { w: 960, h: 480, dur: 8.6, draw(ctx, w, h, t) {
+    wall(ctx, w, h);
+    const k = w / 640;
+    const px = Math.round(8 * k);
+    const ground = h - 84 * k;
+    const clawdW = 16 * px;
+    const homeX = w * 0.06;
+    const codexCX = w * 0.8;
+    const stopX = codexCX - 70 * k - clawdW;
+    brand(ctx, 22 * k, 18 * k, 22 * k);
+    const won = t >= 5.0;
+    pill(ctx, `Clawd ${won ? 5 : 4} · Codex 1 · Draws 1`, w - 22 * k, 16 * k, 11 * k, { align: "right" });
+    paintBar(ctx, homeX - 12 * k, ground - 26 * k, w * 0.46, 140 * k, k, "Work with Claude", homeX + clawdW + 4 * k);
+    paintBar(ctx, w * 0.58, ground - 26 * k, w * 0.42 + 40, 140 * k, k, null, 0);
+    label(ctx, "your Codex pet", codexCX, ground + 36 * k, 11.5 * k, "rgba(255,255,255,0.5)");
+
+    let cx = homeX, look = { mood: "idle" }, showClawd = true, showCodex = true, codexMood = "idle", codexT = t, tag = null;
+    if (t < 1.3) { look = { mood: "happy" }; tag = "En garde, Codex!"; if (t > 0.55) { codexMood = "wave"; codexT = t - 0.55; } }
+    else if (t < 2.2) { cx = homeX + (stopX - homeX) * ease((t - 1.3) / 0.9); look = { mood: "idle", walk: true, lookDX: 1 }; }
+    else if (t < 5.0) { cx = stopX; showClawd = false; showCodex = false; }
+    else if (t < 6.6) {
+      cx = stopX; look = { mood: "happy" }; codexMood = "dizzy"; codexT = t - 5.0;
+      if (t > 5.15 && t < 6.5) tag = "GG, Codex 🤝";
+    } else if (t < 7.7) { cx = stopX + (homeX - stopX) * ease((t - 6.6) / 1.1); look = { mood: "idle", walk: true, lookDX: -1 }; }
+
+    const y0 = ground - 12 * px;
+    if (showCodex) paintCodex(ctx, codexMood, codexT, codexCX, ground, 124 * k);
+    if (showClawd) { paintClawd(ctx, px, look, t, cx, y0); paintGlyph(ctx, px, look.mood, t, cx, y0); }
+    if (t >= 2.1 && t < 5.6) paintCloud(ctx, t - 2.1, (stopX + clawdW / 2 + codexCX) / 2, ground - 6.5 * px, k * 1.25, 4127);
+    if (tag) paintTag(ctx, tag, cx + clawdW / 2, y0 + 2 * px, k, w);
+  } };
+
+  // Typing a question, then the reply streaming into his bubble.
+  const QUESTION = "what should I name my pet crab?";
+  const ANSWER = [["Pinchy", true], [" is a classic. If it's a little grumpy, go with ", false], ["Sir Snips-a-Lot", true], [".", false]];
+  function answerWords() {
+    const out = [];
+    for (const [text, bold] of ANSWER) for (const part of text.split(/(?<= )/)) if (part) out.push({ text: part, bold });
+    return out;
+  }
+  function micIcon(ctx, x, y, k, color) {
+    ctx.save();
+    ctx.strokeStyle = color; ctx.lineWidth = 1.5 * k; ctx.lineCap = "round";
+    rr(ctx, x + 4 * k, y + 1 * k, 6 * k, 10 * k, 3 * k); ctx.stroke();
+    ctx.beginPath(); ctx.arc(x + 7 * k, y + 8.5 * k, 5.5 * k, 0, Math.PI); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x + 7 * k, y + 14 * k); ctx.lineTo(x + 7 * k, y + 17 * k); ctx.stroke();
+    ctx.restore();
+  }
+  function orb(ctx, cx, cy, r, k, t) {
+    ctx.save();
+    ctx.fillStyle = "#FFFFFF";
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = "#000"; ctx.lineWidth = 1.7 * k; ctx.lineCap = "round";
+    [[-6, 1.5], [-3, 4], [0, 6], [3, 4], [6, 1.5]].forEach(([dx, hh]) => {
+      ctx.beginPath(); ctx.moveTo(cx + dx * k, cy - hh * k); ctx.lineTo(cx + dx * k, cy + hh * k); ctx.stroke();
+    });
+    ctx.restore();
+  }
+  function composer(ctx, x, y, w, h, k, t, typed, caret) {
+    paintBar(ctx, x, y, w, h, k, null, 0);
+    const textX = x + 112 * k, textY = y + 28 * k;
+    ctx.save();
+    ctx.font = `400 ${14 * k}px ${MONO}`;
+    ctx.textBaseline = "middle";
+    if (typed) { ctx.fillStyle = INK; ctx.fillText(typed, textX, textY); }
+    else { ctx.fillStyle = DIM; ctx.fillText("Work with Claude", textX, textY); }
+    if (caret && Math.floor(t * 2) % 2 === 0) {
+      const cxp = textX + (typed ? ctx.measureText(typed).width : 0) + 1;
+      ctx.fillStyle = C.clawd;
+      ctx.fillRect(cxp, textY - 9 * k, 2 * k, 18 * k);
+    }
+    // bottom row: +, Speak replies, model, mic, orb
+    const rowY = y + h - 27 * k;
+    ctx.strokeStyle = "rgba(255,255,255,0.85)"; ctx.lineWidth = 1.6 * k; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(x + 20 * k, rowY - 6 * k); ctx.lineTo(x + 20 * k, rowY + 6 * k); ctx.moveTo(x + 14 * k, rowY); ctx.lineTo(x + 26 * k, rowY); ctx.stroke();
+    ctx.font = `400 ${12.5 * k}px ${MONO}`;
+    ctx.fillStyle = DIM;
+    ctx.fillText("Speak replies", x + 42 * k, rowY);
+    const orbR = 17 * k, orbX = x + w - 12 * k - orbR;
+    micIcon(ctx, orbX - orbR - 26 * k, rowY - 9 * k, k, "rgba(255,255,255,0.85)");
+    ctx.font = `400 ${13 * k}px ${MONO}`;
+    ctx.fillStyle = INK;
+    ctx.textAlign = "right";
+    ctx.fillText("Sonnet 5.5 ˅", orbX - orbR - 38 * k, rowY);
+    ctx.restore();
+    orb(ctx, orbX, rowY, orbR, k, t);
+  }
+  function bubble(ctx, x, bottom, w, k, status, prompt, words, n) {
+    const padX = 14 * k, padT = 12 * k, padB = 14 * k, gap = 7 * k;
+    const bodySize = 16 * k, lh = bodySize * 1.5;
+    ctx.save();
+    // lay out the body words
+    const lines = [[]];
+    let lineW = 0;
+    const maxW = w - padX * 2;
+    for (let i = 0; i < n; i++) { // only what has streamed in so far, so the bubble grows like the app's
+      const wd = words[i];
+      ctx.font = `${wd.bold ? 700 : 400} ${bodySize}px ${SERIF}`;
+      const ww = ctx.measureText(wd.text).width;
+      if (lineW + ww > maxW && lines[lines.length - 1].length) { lines.push([]); lineW = 0; }
+      lines[lines.length - 1].push({ ...wd, x: lineW, shown: i < n });
+      lineW += ww;
+    }
+    const headH = 16 * k, promptH = 16 * k;
+    const h = padT + headH + gap + promptH + gap + lines.length * lh + padB - 4 * k;
+    const y = bottom - h;
+    rr(ctx, x, y, w, h, 16 * k);
+    ctx.fillStyle = COMP;
+    ctx.shadowColor = "rgba(0,0,0,0.3)"; ctx.shadowBlur = 24 * k; ctx.shadowOffsetY = 8 * k;
+    ctx.fill();
+    ctx.shadowColor = "transparent";
+    ctx.strokeStyle = "rgba(255,255,255,0.10)"; ctx.lineWidth = 1; ctx.stroke();
+    // the tail, pointing down at Clawd
+    ctx.beginPath();
+    ctx.moveTo(x + 46 * k, bottom - 1); ctx.lineTo(x + 58 * k, bottom + 10 * k); ctx.lineTo(x + 70 * k, bottom - 1);
+    ctx.closePath(); ctx.fillStyle = COMP; ctx.fill();
+    ctx.textBaseline = "middle";
+    let cy = y + padT + headH / 2;
+    ctx.font = `400 ${15 * k}px ${MONO}`; ctx.fillStyle = C.clawd; ctx.fillText("✳", x + padX, cy);
+    ctx.font = `600 ${12 * k}px ${MONO}`; ctx.fillStyle = "rgba(255,255,255,0.86)"; ctx.fillText(status, x + padX + 20 * k, cy);
+    cy += headH / 2 + gap + promptH / 2;
+    ctx.font = `400 ${12 * k}px ${MONO}`; ctx.fillStyle = DIM; ctx.fillText(prompt, x + padX, cy);
+    cy += promptH / 2 + gap + lh / 2;
+    ctx.fillStyle = "rgba(255,255,255,0.94)";
+    for (const line of lines) {
+      for (const wd of line) {
+        if (!wd.shown) continue;
+        ctx.font = `${wd.bold ? 700 : 400} ${bodySize}px ${SERIF}`;
+        ctx.fillText(wd.text, x + padX + wd.x, cy);
+      }
+      cy += lh;
+    }
+    ctx.restore();
+  }
+  scenes.talk = { w: 960, h: 540, dur: 9.4, draw(ctx, w, h, t) {
+    wall(ctx, w, h);
+    const k = w / 640;
+    const px = Math.round(6 * k);
+    const barX = w * 0.07, barW = w * 0.86, barH = 96 * k, barY = h - 34 * k - barH;
+    const words = answerWords();
+    let typed = "", showBubble = false, status = "Claude", n = 0, mood = "idle";
+    if (t >= 0.4 && t < 2.4) typed = QUESTION.slice(0, Math.floor(((t - 0.4) / 1.9) * QUESTION.length));
+    else if (t >= 2.4) {
+      showBubble = true;
+      if (t < 3.2) { status = "Thinking…"; mood = "thinking"; }
+      else if (t < 6.4) { n = Math.min(words.length, Math.ceil(((t - 3.2) / 3.0) * words.length)); mood = "speaking"; }
+      else { n = words.length; mood = t < 8.0 ? "happy" : "idle"; }
+    }
+    composer(ctx, barX, barY, barW, barH, k, t, typed, t < 2.4);
+    const cx = barX + 14 * k, y0 = barY - 58 * k + px;
+    paintClawd(ctx, px, { mood, mouth: Math.floor(t * 7) % 2 === 0 }, t, cx, y0);
+    paintGlyph(ctx, px, mood, t, cx, y0);
+    if (showBubble) bubble(ctx, barX, y0 - 2 * px, Math.min(400 * k, barW), k, status, QUESTION, words, n);
+  } };
+
+  // Three things the mod shows him while Claude Code works.
+  scenes.status = { w: 960, h: 360, dur: 4.0, draw(ctx, w, h, t) {
+    wall(ctx, w, h);
+    const k = w / 640;
+    const px = Math.round(6 * k);
+    const cols = [
+      { title: "Claude is working", mood: "working", tag: "Running npm test · my-app" },
+      { title: "Claude needs your OK", mood: "alert", tag: "Allow Bash?" },
+      { title: "Claude is done", mood: "happy", tag: "Done ✓ · my-app" },
+    ];
+    const colW = w / cols.length, ground = h - 46 * k;
+    cols.forEach((c, i) => {
+      const mid = colW * i + colW / 2;
+      paintBar(ctx, colW * i + 14 * k, ground - 20 * k, colW - 28 * k, 120 * k, k, null, 0);
+      label(ctx, c.title, mid, 34 * k, 12 * k, "rgba(255,255,255,0.62)");
+      const x0 = mid - 8 * px, y0 = ground - 12 * px;
+      paintClawd(ctx, px, { mood: c.mood }, t + i * 0.37, x0, y0);
+      paintGlyph(ctx, px, c.mood, t + i * 0.37, x0, y0);
+      paintTag(ctx, c.tag, mid, y0 - 1.5 * px, k * 0.9, w); // above his spinner, "!" or sparkle
+    });
+    ctx.fillStyle = "rgba(255,255,255,0.06)";
+    for (let i = 1; i < cols.length; i++) ctx.fillRect(Math.round(colW * i), 22 * k, 1, h - 44 * k);
+  } };
+
+  // Every mood on one strip.
+  scenes.moods = { w: 1280, h: 250, dur: 0, still: 0.9, draw(ctx, w, h, t) {
+    wall(ctx, w, h);
+    const list = [["idle", "Idle"], ["listening", "Listening"], ["working", "Working"], ["alert", "Needs you"], ["speaking", "Talking"], ["happy", "Done"], ["sleepy", "Napping"], ["dizzy", "Lost a spar"]];
+    const colW = w / list.length, px = 7;
+    list.forEach(([mood, name], i) => {
+      const mid = colW * i + colW / 2;
+      const x0 = mid - 8 * px, y0 = 40;
+      paintClawd(ctx, px, { mood, mouth: true }, t + i * 0.21, x0, y0);
+      paintGlyph(ctx, px, mood, t + i * 0.21, x0, y0);
+      label(ctx, name, mid, 202, 21, "rgba(255,255,255,0.82)");
+    });
+  } };
+
+  // GitHub's social preview card, 1280 by 640.
+  scenes.social = { w: 1280, h: 640, dur: 0, still: 0.35, draw(ctx, w, h, t) {
+    wall(ctx, w, h);
+    dots(ctx, w, h, 32);
+    const left = 84;
+    ctx.save();
+    ctx.font = `700 21px ${MONO}`;
+    ctx.fillStyle = PEACH;
+    ctx.textBaseline = "alphabetic";
+    ctx.fillText("A PET FOR CLAUDE CODE", left, 128);
+    let size = 190;
+    ctx.font = `400 ${size}px ${PIXEL}`;
+    while (ctx.measureText("Clawd Pet").width > 600) { size -= 4; ctx.font = `400 ${size}px ${PIXEL}`; }
+    ctx.fillStyle = CREAM;
+    ctx.fillText("Clawd Pet", left - 4, 128 + size * 0.86);
+    const tagY = 128 + size * 0.86 + 62;
+    ctx.font = `700 38px ${SANS}`;
+    ctx.fillStyle = "#E8EBF1";
+    ctx.fillText("Codex got a pet.", left, tagY);
+    ctx.fillStyle = "rgba(232,235,241,0.62)";
+    ctx.fillText("Claude Code deserved one too.", left, tagY + 50);
+    ctx.restore();
+    let x = left;
+    for (const chip of ["Talk out loud", "Watches Claude work", "Spars with Codex"]) x += pill(ctx, chip, x, tagY + 92, 17, { font: SANS, weight: 600 }) + 12;
+    ctx.save();
+    ctx.font = `500 20px ${MONO}`;
+    ctx.fillStyle = "rgba(255,255,255,0.42)";
+    ctx.fillText("github.com/muppio/clawd-pet", left, h - 48);
+    ctx.restore();
+
+    // the stage, bottom right
+    const ground = 566;
+    paintBar(ctx, 742, ground - 38, 620, 220, 1.6, null, 0);
+    const codexCX = 846;
+    paintCodex(ctx, "wave", 0.3, codexCX, ground, 272);
+    const px = 16, x0 = 952, y0 = ground - 12 * px;
+    paintClawd(ctx, px, { mood: "happy" }, t, x0, y0);
+    paintGlyph(ctx, px, "happy", t, x0, y0);
+    sticker(ctx, "POW!", 1010, 236, 70, -0.16);
+    paintTag(ctx, "spar later?", x0 + 8 * px, y0 + 2 * px, 1.5, w);
+  } };
+
+  // ---------- running it ----------
+  const fontsReady = Promise.all([
+    document.fonts.load(`400 40px "Jersey 10"`),
+    document.fonts.load(`600 20px "Figtree"`),
+    document.fonts.load(`700 20px "Figtree"`),
+    document.fonts.load(`400 20px "JetBrains Mono"`),
+    document.fonts.load(`600 20px "JetBrains Mono"`),
+    document.fonts.load(`700 20px "JetBrains Mono"`),
+  ]).then(() => document.fonts.ready);
+  const imageReady = codexImg.complete && codexImg.naturalWidth ? Promise.resolve() : new Promise((ok, fail) => {
+    codexImg.addEventListener("load", ok, { once: true });
+    codexImg.addEventListener("error", () => fail(new Error("codex-pet.webp did not load")), { once: true });
+  });
+  const ready = Promise.all([fontsReady, imageReady]).then(() => true);
+
+  function render(name, t) {
+    const sc = scenes[name];
+    if (!sc) throw new Error("no scene " + name);
+    const { ctx, w, h } = prep(cv);
+    sc.draw(ctx, w, h, t);
+    return true;
+  }
+
+  const q = new URLSearchParams(location.search);
+  const nav = document.getElementById("nav");
+  for (const name of Object.keys(scenes)) {
+    const a = document.createElement("a");
+    a.href = "?scene=" + name;
+    a.textContent = name;
+    nav.appendChild(a);
+  }
+  if (q.has("render")) document.body.classList.add("render");
+  else {
+    const name = scenes[q.get("scene")] ? q.get("scene") : "spar";
+    const sc = scenes[name];
+    ready.then(() => {
+      if (q.has("t") || !sc.dur) { render(name, q.has("t") ? Number(q.get("t")) : sc.still); return; }
+      const t0 = performance.now();
+      const tick = (ms) => { render(name, ((ms - t0) / 1000) % sc.dur); requestAnimationFrame(tick); };
+      requestAnimationFrame(tick);
+    });
+  }
+  return { scenes, ready, render };
+})();
+</script>
+</body>
+</html>

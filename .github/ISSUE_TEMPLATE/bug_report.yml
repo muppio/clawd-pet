@@ -1,0 +1,93 @@
+name: Bug report
+description: Something about Clawd isn't working right.
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. The more detail you give, the faster it gets fixed.
+        Security problems don't belong here. See SECURITY.md for how to report them privately.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Tell us what went wrong.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: What did you do, step by step?
+      placeholder: |
+        1. Type /pet in Claude Code
+        2. Right-click Clawd
+        3. Choose ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: OS and version
+      options:
+        - macOS 14
+        - macOS 15
+        - macOS 26
+        - Windows 10
+        - Windows 11
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: chip
+    attributes:
+      label: Mac chip
+      description: Pick n/a if you're not on a Mac.
+      options:
+        - Apple silicon
+        - Intel
+        - n/a
+    validations:
+      required: true
+
+  - type: input
+    id: claude-version
+    attributes:
+      label: Claude Code version
+      description: Run `claude --version` and paste what it prints.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: codex-pet
+    attributes:
+      label: Was the Codex pet on screen?
+      options:
+        - "Yes"
+        - "No"
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs and screenshots
+      description: |
+        Paste any message `/pet` printed, and drag in screenshots or a screen recording.
+        On Windows, `%USERPROFILE%\.clawd-pet\error.log` helps. If sparring is the problem on Windows, add what `ClawdPet.exe --codex-windows` prints.
+        If Clawd crashed on a Mac, a crash report from Console.app (search for ClawdPet) helps.
+    validations:
+      required: false

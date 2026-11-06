@@ -1,0 +1,829 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Clawd Pet</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="A little pixel Clawd for Claude Code who talks, listens, and spars with your Codex pet. Unofficial fan project.">
+<link rel="icon" href="brand/logo.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://muppio.github.io/clawd-pet/">
+<meta property="og:title" content="Clawd Pet: Codex got a pet. Claude Code deserved one too.">
+<meta property="og:description" content="A little pixel Clawd for Claude Code who talks, listens, watches Claude work, and spars with your Codex pet. Free and open source.">
+<meta property="og:image" content="https://muppio.github.io/clawd-pet/brand/social-preview.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta property="og:image:alt" content="Clawd Pet: a pixel Clawd and the Codex pet on their composers, with POW! between them.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://muppio.github.io/clawd-pet/brand/social-preview.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Jersey+10&display=swap">
+<style>
+/* Layout: one column of little "desktop corner" stages. Every feature runs live on a wallpaper stage, with plain text beside it. */
+:root {
+  --bg: #ECEEF3;
+  --surface: #FFFFFF;
+  --ink: #16191F;
+  --muted: #545C6E;
+  --line: #D5D9E2;
+  --accent: #D77757;
+  --accent-text: #9E4C30;
+  --wall-a: #C8D1EE;
+  --wall-b: #EADCF1;
+  --code-bg: #E1E5ED;
+  --comp: #2F2F33;
+  --comp-line: rgba(255, 255, 255, 0.10);
+  --comp-ink: #F3F3F5;
+  --comp-dim: rgba(255, 255, 255, 0.46);
+  --pop: #FFCC52;
+  --on-accent: #1E100B;
+  --f-display: "Jersey 10", "Courier New", monospace;
+  --f-body: "Figtree", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --f-serif: ui-serif, "New York", "Iowan Old Style", Georgia, serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0E1117;
+    --surface: #161A22;
+    --ink: #E8EBF1;
+    --muted: #9AA2B4;
+    --line: #262C38;
+    --accent-text: #F0A283;
+    --wall-a: #1A2236;
+    --wall-b: #2B1F35;
+    --code-bg: #1D222D;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0E1117;
+  --surface: #161A22;
+  --ink: #E8EBF1;
+  --muted: #9AA2B4;
+  --line: #262C38;
+  --accent-text: #F0A283;
+  --wall-a: #1A2236;
+  --wall-b: #2B1F35;
+  --code-bg: #1D222D;
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--f-body);
+  font-size: 17px;
+  line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1120px; margin-inline: auto; }
+a { color: var(--accent-text); text-underline-offset: 3px; }
+a:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: 8px; }
+code, kbd { font-family: var(--f-mono); font-size: 0.86em; }
+:not(pre) > code { background: var(--code-bg); padding: 0.1em 0.4em; border-radius: 6px; }
+h1, h2, h3 { font-family: var(--f-display); font-weight: 400; line-height: 1.02; text-wrap: balance; margin: 0; letter-spacing: 0.01em; }
+h1 { font-size: clamp(2.9rem, 6.8vw, 5.3rem); }
+h2 { font-size: clamp(2.2rem, 4.3vw, 3.4rem); }
+h3 { font-size: 1.55rem; }
+p { margin: 0; }
+.lede { font-size: 1.12rem; color: var(--muted); max-width: 58ch; }
+.eyebrow { font-family: var(--f-mono); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent-text); font-weight: 600; }
+
+/* Header */
+.top { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding-block: 18px; }
+.brand { display: flex; align-items: center; gap: 10px; font-family: var(--f-display); font-weight: 400; font-size: 1.7rem; color: var(--ink); text-decoration: none; }
+.brand canvas { width: 40px; height: 34px; }
+.nav { display: flex; gap: 6px; flex-wrap: wrap; }
+.nav a { color: var(--muted); text-decoration: none; font-weight: 600; font-size: 15px; padding: 6px 10px; border-radius: 10px; }
+.nav a:hover { color: var(--ink); background: var(--surface); }
+
+/* Hero */
+.hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr); gap: clamp(28px, 5vw, 60px); align-items: center; padding-block: clamp(20px, 5vw, 64px) clamp(48px, 7vw, 88px); }
+.hero-copy { display: grid; gap: 22px; min-width: 0; }
+.fan-note { justify-self: start; font-family: var(--f-mono); font-size: 12px; color: var(--muted); border: 1px dashed var(--line); border-radius: 999px; padding: 5px 12px; }
+.cta { display: flex; gap: 12px; flex-wrap: wrap; }
+.btn { display: inline-flex; align-items: center; gap: 8px; font: 600 16px/1 var(--f-body); padding: 13px 18px; border-radius: 12px; text-decoration: none; cursor: pointer; border: 1px solid transparent; }
+.btn-primary { background: var(--accent); color: var(--on-accent); }
+.btn-primary:hover { filter: brightness(1.06); }
+.btn-ghost { border-color: var(--line); color: var(--ink); background: var(--surface); }
+
+/* Stages: the little desktops everything plays on */
+.stage { position: relative; border-radius: 24px; background: linear-gradient(155deg, var(--wall-a), var(--wall-b)); border: 1px solid var(--line); overflow: hidden; }
+.stage canvas { display: block; }
+#cvHero { width: 100%; height: clamp(270px, 34vw, 360px); cursor: pointer; }
+
+/* Sections */
+section { padding-block: clamp(56px, 8vw, 104px); border-top: 1px solid var(--line); }
+.head { display: grid; gap: 14px; margin-bottom: clamp(28px, 4vw, 44px); max-width: 720px; }
+.split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: clamp(28px, 5vw, 64px); align-items: center; }
+.split > * { min-width: 0; }
+.prose { display: grid; gap: 16px; }
+.prose p { color: var(--muted); max-width: 60ch; }
+
+/* Moods */
+.moods { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin: 0; padding: 0; list-style: none; }
+.mood { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 14px 14px 16px; display: grid; gap: 4px; }
+.mood .pad { border-radius: 12px; background: linear-gradient(155deg, var(--wall-a), var(--wall-b)); display: grid; place-items: center; padding-block: 6px; margin-bottom: 8px; }
+.mood canvas { width: 96px; height: 90px; }
+.mood b { font-size: 16px; }
+.mood span { color: var(--muted); font-size: 14px; line-height: 1.45; }
+
+/* Composer demo, styled after the app */
+.chat-stage { padding: 26px clamp(14px, 3vw, 28px) 30px; display: grid; gap: 14px; }
+.bubble-slot { min-height: 196px; display: flex; align-items: flex-end; }
+.bubble { position: relative; width: min(400px, 100%); background: var(--comp); color: var(--comp-ink); border: 1px solid var(--comp-line); border-radius: 16px; padding: 11px 14px 13px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28); display: grid; gap: 6px; }
+.bubble::after { content: ""; position: absolute; left: 54px; bottom: -8px; width: 16px; height: 16px; background: var(--comp); border-right: 1px solid var(--comp-line); border-bottom: 1px solid var(--comp-line); transform: rotate(45deg); }
+.b-head { display: flex; align-items: center; gap: 7px; font: 600 12px/1.3 var(--f-mono); color: rgba(255, 255, 255, 0.86); }
+.b-star { color: var(--accent); font-size: 15px; line-height: 1; }
+.b-prompt { font: 12px/1.45 var(--f-mono); color: var(--comp-dim); }
+.b-body { font: 15px/1.5 var(--f-serif); color: rgba(255, 255, 255, 0.94); min-height: 1.5em; }
+.b-body code { background: rgba(255, 255, 255, 0.10); color: #F6D3C6; padding: 0.05em 0.35em; border-radius: 5px; font-size: 0.82em; }
+.composer { position: relative; background: var(--comp); border: 1px solid var(--comp-line); border-radius: 26px; height: 96px; box-shadow: 0 10px 28px rgba(0, 0, 0, 0.30); margin-top: 52px; }
+.comp-pet { position: absolute; left: 14px; top: -58px; width: 96px; height: 90px; pointer-events: none; }
+.c-field { position: absolute; left: 112px; right: 16px; top: 14px; font: 14px/1.4 var(--f-mono); color: var(--comp-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.c-ph { color: var(--comp-dim); }
+.c-caret { display: inline-block; width: 2px; height: 1.05em; background: var(--accent); vertical-align: -0.15em; margin-left: 1px; animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.c-row { position: absolute; left: 12px; right: 10px; bottom: 10px; display: flex; align-items: center; gap: 10px; color: rgba(255, 255, 255, 0.85); font: 12.5px/1 var(--f-mono); }
+.c-row svg { display: block; }
+.c-chip { display: inline-flex; align-items: center; gap: 5px; color: var(--comp-dim); white-space: nowrap; }
+.c-spacer { flex: 1; min-width: 0; }
+.c-model { display: inline-flex; align-items: center; gap: 5px; color: var(--comp-ink); font-size: 13px; white-space: nowrap; }
+.c-orb { width: 34px; height: 34px; border-radius: 50%; border: 0; background: #FFFFFF; color: #000; display: grid; place-items: center; cursor: pointer; padding: 0; position: relative; flex: none; }
+.c-orb .bars { display: none; gap: 2.5px; align-items: center; height: 18px; }
+.c-orb .bars i { display: block; width: 2.6px; border-radius: 2px; background: #FFFFFF; height: 6px; }
+.c-orb[aria-pressed="true"] { background: var(--accent); }
+.c-orb[aria-pressed="true"] svg { display: none; }
+.c-orb[aria-pressed="true"] .bars { display: flex; }
+.c-orb[aria-pressed="true"]::before { content: ""; position: absolute; inset: -5px; border-radius: 50%; border: 2px solid rgba(215, 119, 87, 0.55); transform: scale(var(--ring, 1)); }
+.hint { font: 13px/1.4 var(--f-mono); color: var(--muted); }
+@media (max-width: 520px) { .c-chip .lbl { display: none; } }
+
+.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; counter-reset: step; }
+.steps li { counter-increment: step; display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 12px; align-items: start; }
+.steps li::before { content: counter(step); font: 700 15px/34px var(--f-display); text-align: center; width: 34px; height: 34px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); color: var(--accent-text); }
+.steps b { display: block; }
+.steps span { color: var(--muted); font-size: 15px; }
+.loop-note { font: 13px/1.4 var(--f-mono); color: var(--muted); padding-left: 46px; }
+
+/* Status demo */
+.status-stage { padding: clamp(18px, 3vw, 30px); display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 18px; align-items: end; }
+.status-card { background: var(--comp); color: var(--comp-ink); border: 1px solid var(--comp-line); border-radius: 16px; padding: 12px 14px 14px; display: grid; gap: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28); min-width: 0; }
+.s-detail { display: flex; align-items: center; gap: 8px; font: 13px/1.4 var(--f-mono); color: rgba(255, 255, 255, 0.82); min-width: 0; }
+.s-detail span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.s-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex: none; }
+.status-card.alert .s-dot { background: var(--pop); }
+.status-card.done .s-dot { background: #7DD3A0; }
+.status-card.alert .b-star { color: var(--pop); }
+#cvStatus { width: 100px; height: 94px; }
+@media (max-width: 520px) { .status-stage { grid-template-columns: minmax(0, 1fr); justify-items: start; } }
+
+/* The spar */
+.spar .stage { border-radius: 28px; }
+#cvFight { width: 100%; height: clamp(250px, 30vw, 320px); }
+.spar-bar { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-top: 16px; }
+.score { font: 600 15px/1.3 var(--f-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.score b { color: var(--ink); font-size: 18px; display: inline-block; min-width: 1.2ch; text-align: right; }
+.score b.bump { animation: bump 0.6s ease-out; color: var(--accent-text); }
+@keyframes bump { 0% { transform: scale(1.7); } 100% { transform: scale(1); } }
+.spar-how { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 28px; }
+.spar-how div { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 16px; display: grid; gap: 6px; }
+.spar-how span { color: var(--muted); font-size: 15px; }
+
+/* Features */
+.features { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.feature { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 18px; display: grid; gap: 10px; align-content: start; }
+.feature kbd { justify-self: start; font: 600 13px/1 var(--f-mono); background: var(--code-bg); border: 1px solid var(--line); border-bottom-width: 3px; border-radius: 8px; padding: 6px 9px; color: var(--ink); }
+.feature span { color: var(--muted); font-size: 15px; line-height: 1.5; }
+
+/* Commands + install */
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; min-width: 460px; }
+th, td { text-align: left; padding: 13px 16px; border-bottom: 1px solid var(--line); vertical-align: top; }
+tr:last-child td { border-bottom: 0; }
+th { font: 600 12px/1.3 var(--f-mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+td:first-child { white-space: nowrap; }
+td { font-size: 15px; }
+.install { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(24px, 4vw, 48px); align-items: start; }
+.install > * { min-width: 0; }
+.reqs { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+.reqs li { display: flex; gap: 10px; color: var(--muted); }
+.reqs li::before { content: "▪"; color: var(--accent); }
+.code { background: var(--comp); color: var(--comp-ink); border-radius: 16px; padding: 16px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.code small a { color: var(--comp-ink); }
+.code-line { display: flex; align-items: center; gap: 10px; }
+.code pre { margin: 0; overflow-x: auto; font: 14px/1.5 var(--f-mono); flex: 1; min-width: 0; }
+.copy { flex: none; font: 600 13px/1 var(--f-body); background: rgba(255, 255, 255, 0.10); color: var(--comp-ink); border: 1px solid var(--comp-line); border-radius: 9px; padding: 8px 11px; cursor: pointer; }
+.code small { color: var(--comp-dim); font: 12.5px/1.4 var(--f-mono); }
+.privacy { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.privacy div { border-left: 3px solid var(--accent); padding: 4px 0 4px 16px; display: grid; gap: 4px; }
+.privacy span { color: var(--muted); font-size: 15px; }
+
+footer { border-top: 1px solid var(--line); padding-block: 36px 48px; display: grid; gap: 10px; color: var(--muted); font-size: 14px; }
+footer strong { color: var(--ink); }
+
+@media (max-width: 900px) {
+  .hero, .split, .install { grid-template-columns: minmax(0, 1fr); }
+  .moods, .features { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .spar-how, .privacy { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .c-caret { animation: none; }
+  .score b.bump { animation: none; }
+}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="#top" aria-label="Clawd Pet home"><canvas id="cvBrand" role="img" aria-label="Clawd"></canvas>Clawd Pet</a>
+    <nav class="nav" aria-label="Sections">
+      <a href="#talk">Talk</a>
+      <a href="#spar">Spar</a>
+      <a href="#features">Features</a>
+      <a href="#install">Install</a>
+      <a href="https://github.com/muppio/clawd-pet">GitHub</a>
+    </nav>
+  </header>
+
+  <main id="top">
+    <div class="hero">
+      <div class="hero-copy">
+        <p class="fan-note">Unofficial fan project · not affiliated with Anthropic or OpenAI</p>
+        <h1>Codex got a pet. Claude Code deserved one too.</h1>
+        <p class="lede">Clawd Pet puts a little pixel Clawd in the corner of your screen. He talks, he listens, he watches Claude work, and now and then he spars with your Codex pet.</p>
+        <div class="cta">
+          <a class="btn btn-primary" href="#spar">Watch him spar</a>
+          <a class="btn btn-ghost" href="#install">Install</a>
+        </div>
+      </div>
+      <div class="stage">
+        <canvas id="cvHero" role="img" aria-label="Clawd standing on his composer bar next to the Codex pet. Hover to make him wave, click to poke him."></canvas>
+      </div>
+    </div>
+
+    <section aria-labelledby="moods-title">
+      <div class="head">
+        <p class="eyebrow">Eight moods</p>
+        <h2 id="moods-title">He shows you what's going on without a word</h2>
+        <p class="lede">Every pose is drawn on the same 16 by 13 pixel grid and changes with what Claude is doing.</p>
+      </div>
+      <ul class="moods">
+        <li class="mood"><div class="pad"><canvas data-mood="idle" role="img" aria-label="Clawd idle"></canvas></div><b>Idle</b><span>Blinks, breathes and looks around.</span></li>
+        <li class="mood"><div class="pad"><canvas data-mood="listening" role="img" aria-label="Clawd listening"></canvas></div><b>Listening</b><span>Arms up and wide-eyed while you talk.</span></li>
+        <li class="mood"><div class="pad"><canvas data-mood="working" role="img" aria-label="Clawd working"></canvas></div><b>Working</b><span>Walks in place under a spinner while Claude works.</span></li>
+        <li class="mood"><div class="pad"><canvas data-mood="alert" role="img" aria-label="Clawd needs you"></canvas></div><b>Needs you</b><span>Raises a "!" when Claude is waiting for your OK.</span></li>
+        <li class="mood"><div class="pad"><canvas data-mood="speaking" role="img" aria-label="Clawd talking"></canvas></div><b>Talking</b><span>His mouth moves with each word of a reply.</span></li>
+        <li class="mood"><div class="pad"><canvas data-mood="happy" role="img" aria-label="Clawd happy"></canvas></div><b>Done</b><span>Happy eyes, rosy cheeks and a little hop.</span></li>
+        <li class="mood"><div class="pad"><canvas data-mood="sleepy" role="img" aria-label="Clawd napping"></canvas></div><b>Napping</b><span>Dozes off after five quiet minutes.</span></li>
+        <li class="mood"><div class="pad"><canvas data-mood="dizzy" role="img" aria-label="Clawd dizzy"></canvas></div><b>Lost a spar</b><span>Dizzy, with stars circling his head.</span></li>
+      </ul>
+    </section>
+
+    <section id="talk" aria-labelledby="talk-title">
+      <div class="split">
+        <div class="prose">
+          <p class="eyebrow">Type, dictate or talk</p>
+          <h2 id="talk-title">A pet you can actually talk to</h2>
+          <p>Clawd stands on a composer like the one under the Codex pet. Type a question and press Return, tap the mic to dictate, or tap the orb for a hands-free voice conversation.</p>
+          <ol class="steps">
+            <li><div><b>You talk</b><span>Tap the orb and ask anything.</span></div></li>
+            <li><div><b>Your Mac writes it down</b><span>On the device, whenever macOS supports that for your language.</span></div></li>
+            <li><div><b>Your own <code>claude -p</code> answers</b><span>No API key. Replies count toward your Claude plan.</span></div></li>
+            <li><div><b>Clawd says it out loud</b><span>Sentence by sentence, as the reply streams in.</span></div></li>
+          </ol>
+          <p class="loop-note">↻ then he listens again, until you tap the orb</p>
+        </div>
+        <div class="stage chat-stage">
+          <div class="bubble-slot">
+            <div class="bubble" id="bubble" hidden>
+              <div class="b-head"><span class="b-star">✳</span><span id="bStatus">Thinking…</span></div>
+              <div class="b-prompt" id="bPrompt"></div>
+              <div class="b-body" id="bBody"></div>
+            </div>
+          </div>
+          <div class="composer">
+            <canvas class="comp-pet" id="cvComposer" aria-hidden="true"></canvas>
+            <div class="c-field"><span id="cText"></span><span class="c-caret" id="cCaret" aria-hidden="true"></span><span class="c-ph" id="cPh">Work with Claude</span></div>
+            <div class="c-row">
+              <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg>
+              <span class="c-chip"><svg width="15" height="14" viewBox="0 0 15 14" aria-hidden="true"><path d="M1.5 5h2.5L7.5 2v10L4 9H1.5z" fill="currentColor"/><path d="M10 4.5a3.5 3.5 0 0 1 0 5M12 2.5a6.5 6.5 0 0 1 0 9" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round"/></svg><span class="lbl">Speak replies</span></span>
+              <span class="c-spacer"></span>
+              <span class="c-model">Sonnet 5.5 <svg width="9" height="6" viewBox="0 0 9 6" aria-hidden="true"><path d="M1 1l3.5 3.5L8 1" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg></span>
+              <svg width="14" height="18" viewBox="0 0 14 18" aria-hidden="true"><rect x="4" y="1" width="6" height="10" rx="3" stroke="currentColor" stroke-width="1.5" fill="none"/><path d="M1.5 8.5a5.5 5.5 0 0 0 11 0M7 14v3" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
+              <button class="c-orb" id="orb" type="button" aria-pressed="false" aria-label="Try voice mode">
+                <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 6.5v3M5 4v8M8 2v12M11 4v8M14 6.5v3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+                <span class="bars" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+              </button>
+            </div>
+          </div>
+          <p class="hint" id="orbHint">Tap the white orb to try voice mode.</p>
+        </div>
+      </div>
+    </section>
+
+    <section aria-labelledby="status-title">
+      <div class="split">
+        <div class="stage status-stage">
+          <div class="status-card" id="sCard">
+            <div class="b-head"><span class="b-star">✳</span><span id="sHead">Claude is working · my-app</span></div>
+            <div class="b-prompt">“Fix the login bug on the settings page”</div>
+            <div class="s-detail"><i class="s-dot"></i><span id="sDetail">Thinking…</span></div>
+          </div>
+          <canvas id="cvStatus" role="img" aria-label="Clawd reacting to Claude Code's status"></canvas>
+        </div>
+        <div class="prose">
+          <p class="eyebrow">Live from Claude Code</p>
+          <h2 id="status-title">He keeps an eye on Claude while you look away</h2>
+          <p>The Claude Code mod tells Clawd what each turn is doing: which file Claude is reading, which command is running and which project it's in. When Claude stops to ask for your OK, he raises a "!". When the work is done, he hops.</p>
+          <p>Click him or the arrow in his bubble to jump straight to the Claude app.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="spar" id="spar" aria-labelledby="spar-title">
+      <div class="head">
+        <p class="eyebrow">The main event</p>
+        <h2 id="spar-title">Clawd vs. your Codex pet</h2>
+        <p class="lede">Right-click Clawd and choose Spar with Codex, or type <code>/pet fight</code>. He picks a fight, runs over, and they vanish into a cartoon dust cloud. Then he walks home with the result.</p>
+      </div>
+      <div class="stage">
+        <canvas id="cvFight" role="img" aria-label="Clawd runs to the Codex pet, they disappear into a cartoon fight cloud full of POW and BONK, and Clawd walks home with the result."></canvas>
+      </div>
+      <div class="spar-bar">
+        <p class="score" aria-live="polite">Clawd <b id="scClawd">4</b> · Codex <b id="scCodex">1</b> · Draws <b id="scDraw">1</b></p>
+        <button class="btn btn-ghost" id="sparAgain" type="button">Spar again</button>
+      </div>
+      <div class="spar-how">
+        <div><b>He finds Codex on his own</b><span>Clawd spots the Codex pet by where its window sits on screen, and nothing records your screen. If it isn't out, he asks you to open it first.</span></div>
+        <div><b>It's all in good fun</b><span>Clawd wins about 45% of rounds, Codex 40%, and the rest are draws. The score is kept.</span></div>
+        <div><b>Or let them spar on their own</b><span>Turn on "Spar now and then" for a rematch every 20 to 40 quiet minutes.</span></div>
+      </div>
+    </section>
+
+    <section id="features" aria-labelledby="features-title">
+      <div class="head">
+        <p class="eyebrow">Little things</p>
+        <h2 id="features-title">Small, quick, and out of your way</h2>
+      </div>
+      <div class="features">
+        <div class="feature"><kbd>click</kbd><b>Open Claude</b><span>One click brings the Claude app forward.</span></div>
+        <div class="feature"><kbd>⌃⌥C</kbd><b>Chat from anywhere</b><span>Opens his composer with the cursor ready, whatever app you're in.</span></div>
+        <div class="feature"><kbd>drag</kbd><b>Park him anywhere</b><span>Drop him in any corner of any screen. He remembers the spot.</span></div>
+        <div class="feature"><kbd>mini</kbd><b>Mini mode</b><span>Hide the composer and keep just the pet.</span></div>
+        <div class="feature"><kbd>model</kbd><b>Pick a model</b><span>Opus, Sonnet or Haiku. Sonnet is the default for quick voice replies.</span></div>
+        <div class="feature"><kbd>**md**</kbd><b>Formatted replies</b><span>Bold, italics, code and links render in his bubble.</span></div>
+        <div class="feature"><kbd>calm</kbd><b>Reduce Motion</b><span>With Reduce Motion on, he stops bobbing and hopping.</span></div>
+        <div class="feature"><kbd>clawdpet://</kbd><b>Links for Shortcuts</b><span>Ask, start voice, open a new chat or start a spar from Shortcuts or Raycast.</span></div>
+      </div>
+    </section>
+
+    <section aria-labelledby="commands-title">
+      <div class="head">
+        <p class="eyebrow">Commands</p>
+        <h2 id="commands-title">Three commands and four links</h2>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Type this</th><th scope="col">What happens</th></tr></thead>
+          <tbody>
+            <tr><td><code>/pet</code></td><td>Summon or dismiss Clawd. The first run installs the app in a few seconds.</td></tr>
+            <tr><td><code>/pet fight</code></td><td>Send Clawd to spar with the Codex pet, which has to be on screen.</td></tr>
+            <tr><td><code>/pet rebuild</code></td><td>Build the app yourself from source. This one needs Xcode's command line tools.</td></tr>
+            <tr><td><code>clawdpet://ask?q=…</code></td><td>Ask Claude something. <code>clawdpet://voice</code>, <code>clawdpet://new</code> and <code>clawdpet://fight</code> work too.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="install" aria-labelledby="install-title">
+      <div class="install">
+        <div class="prose">
+          <p class="eyebrow">Install</p>
+          <h2 id="install-title">One line in Claude Code</h2>
+          <ul class="reqs">
+            <li>macOS 14 or later, on Apple silicon or Intel</li>
+            <li>Or Windows 10 or 11</li>
+            <li>Claude Code installed and logged in</li>
+          </ul>
+          <p>Then type <code>/pet</code>. The first run installs the app in a few seconds, and later plugin updates install themselves. The first time you use the mic or the orb, macOS asks for microphone and speech recognition access.</p>
+        </div>
+        <div class="code">
+          <div class="code-line">
+            <pre id="installLine">/plugin install clawd-pet --marketplace muppio/clawd-pet</pre>
+            <button class="copy" id="copyBtn" type="button">Copy</button>
+          </div>
+          <small>Like him? <a href="https://github.com/muppio/clawd-pet">Star Clawd Pet on GitHub</a> so other Claude Code users can find him.</small>
+        </div>
+      </div>
+    </section>
+
+    <section aria-labelledby="privacy-title">
+      <div class="head">
+        <p class="eyebrow">Privacy</p>
+        <h2 id="privacy-title">What Clawd hears and sends</h2>
+      </div>
+      <div class="privacy">
+        <div><b>The mic is on only when you ask</b><span>It turns on when you tap the mic or the orb, and stops when you stop talking or tap again.</span></div>
+        <div><b>Speech turns into text on your Mac</b><span>Whenever macOS supports on-device recognition for your language. When it doesn't, macOS uses Apple's speech service.</span></div>
+        <div><b>Only your words go to Claude</b><span>Just what you type or say, sent through your own <code>claude</code> command. Its only tools are web search and web fetch.</span></div>
+        <div><b>No screen recording</b><span>He finds the Codex pet from where its window sits, without capturing anything on screen.</span></div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p><strong>Unofficial fan project.</strong> Not affiliated with, endorsed by, or sponsored by Anthropic or OpenAI. Claude, Claude Code and Clawd are Anthropic's; Codex is OpenAI's. The Codex pet is never modified; Clawd only draws next to it. The Codex pet artwork on this page is OpenAI's, from the Codex app.</p>
+    <p>MIT licensed.</p>
+  </footer>
+</div>
+
+<script src="art.js"></script>
+<script>
+(() => {
+  "use strict";
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const $ = (s) => document.querySelector(s);
+
+  const { C, MONO, prep, paintClawd, paintGlyph, paintCodex, codexImg, paintCloud, paintTag, paintBar } = window.ClawdArt;
+  window.ClawdArt.reduce = reduce;
+
+  // ---------- scenes ----------
+  const scenes = [];
+  function scene(el, draw) {
+    const sc = { el, draw, visible: true };
+    scenes.push(sc);
+    return sc;
+  }
+
+  // Brand mark
+  scene($("#cvBrand"), (t) => {
+    const { ctx } = prep($("#cvBrand"));
+    paintClawd(ctx, 2, { mood: "idle" }, t, 4, -4);
+  });
+
+  // Hero: Clawd on his composer, beside the Codex pet on its own.
+  const hero = { mood: "idle", until: 0, hover: false, squishUntil: 0, msg: "", msgUntil: 0, box: null };
+  const HERO_TAGS = ["hi! I'm Clawd", "⌃⌥C to chat", "spar later?"];
+  const heroCv = $("#cvHero");
+  const heroScene = scene(heroCv, (t) => {
+    const { ctx, w, h } = prep(heroCv);
+    const s = Math.min(1.25, Math.max(0.62, w / 600));
+    const pxC = Math.max(5, Math.round(10 * s));
+    const pxR = Math.max(3, Math.round(6 * s));
+    const ground = h - 64 * s;
+    const leftBarRight = w * 0.40;
+    paintBar(ctx, -40, ground - 20 * s, leftBarRight + 40, 110 * s, s, null, 0);
+    const codexCX = leftBarRight - 6 * pxR - 34 * s;
+    // It waves back while Clawd's tag says "spar later?".
+    const tagPhase = t % 3.2, waving = !reduce && Math.floor(t / 3.2) % HERO_TAGS.length === 2 && tagPhase < 1.4;
+    paintCodex(ctx, waving ? "wave" : "idle", waving ? tagPhase : t, codexCX, ground, 100 * s);
+    ctx.save();
+    ctx.font = `500 ${Math.max(10, 11.5 * s)}px ${MONO}`;
+    ctx.fillStyle = "rgba(255,255,255,0.5)";
+    ctx.textAlign = "center";
+    ctx.fillText("your Codex pet", codexCX, ground + 26 * s);
+    ctx.restore();
+
+    const barX = w * 0.46;
+    const clawdX = barX + 10 * s;
+    paintBar(ctx, barX, ground - 26 * s, w - barX - 16 * s, 120 * s, s, "Work with Claude", clawdX + 16 * pxC + 6 * s);
+    const y0 = ground - 12 * pxC;
+    const now = t;
+    let mood = now < hero.until ? hero.mood : "idle";
+    const look = { mood, hover: hero.hover, calm: reduce };
+    ctx.save();
+    if (now < hero.squishUntil) {
+      const fx = clawdX + 8 * pxC, fy = ground;
+      ctx.translate(fx, fy);
+      ctx.scale(1.14, 0.84);
+      ctx.translate(-fx, -fy);
+    }
+    paintClawd(ctx, pxC, look, t, clawdX, y0);
+    paintGlyph(ctx, pxC, mood, t, clawdX, y0);
+    ctx.restore();
+    hero.box = { x: clawdX, y: y0 + 2 * pxC, w: 16 * pxC, h: 11 * pxC };
+    const msg = now < hero.msgUntil ? hero.msg : HERO_TAGS[Math.floor(t / 3.2) % HERO_TAGS.length];
+    paintTag(ctx, msg, clawdX + 8 * pxC, y0 + 2 * pxC, s, w);
+  });
+  function heroHit(e) {
+    if (!hero.box) return false;
+    const r = heroCv.getBoundingClientRect();
+    const x = e.clientX - r.left, y = e.clientY - r.top, b = hero.box;
+    return x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h;
+  }
+  heroCv.addEventListener("pointermove", (e) => { hero.hover = heroHit(e); });
+  heroCv.addEventListener("pointerleave", () => { hero.hover = false; });
+  heroCv.addEventListener("click", (e) => {
+    const t = performance.now() / 1000;
+    if (heroHit(e)) {
+      hero.squishUntil = t + 0.16;
+      hero.mood = "happy";
+      hero.until = t + 1.6;
+      hero.msg = "hey! ✳";
+      hero.msgUntil = t + 1.6;
+    } else {
+      hero.mood = "alert";
+      hero.until = t + 1.2;
+      hero.msg = "over here!";
+      hero.msgUntil = t + 1.2;
+    }
+    if (reduce) heroScene.draw(t);
+  });
+
+  // Mood cards
+  document.querySelectorAll("canvas[data-mood]").forEach((cv, i) => {
+    const mood = cv.dataset.mood;
+    scene(cv, (t) => {
+      const { ctx } = prep(cv);
+      const px = 6;
+      const tt = t + i * 0.37;
+      const look = { mood, mouth: Math.floor(tt * 7) % 3 !== 0, calm: reduce };
+      paintClawd(ctx, px, look, tt, 0, px);
+      paintGlyph(ctx, px, mood, tt, 0, px);
+    });
+  });
+
+  // Chat demo: typed questions, or the voice loop when the orb is on.
+  const QA = [
+    { q: "Fun fact about crabs?", a: "Evolution keeps reinventing the crab. At least five separate groups of crustaceans have ended up crab-shaped, a pattern biologists call **carcinization**." },
+    { q: "Explain git rebase in one line", a: "It replays your commits on top of another branch, so history reads as if you started from its latest commit. Try `git rebase main`." },
+  ];
+  const VQA = [
+    { q: "Hey Clawd, what should I name my pet crab?", a: "Pinchy is a classic. If it's a little grumpy, go with Sir Snips-a-Lot." },
+    { q: "How long should I steep green tea?", a: "About two to three minutes, in water just below boiling. Any longer and it turns bitter." },
+  ];
+  function tokens(s) {
+    let bold = false, code = false;
+    return s.split(" ").map((raw) => {
+      let w = raw, b = bold, c = code;
+      if (w.startsWith("**")) { bold = true; b = true; w = w.slice(2); }
+      if (w.startsWith("`")) { code = true; c = true; w = w.slice(1); }
+      const endB = w.includes("**"), endC = w.includes("`");
+      w = w.replace(/\*\*/g, "").replace(/`/g, "");
+      if (endB) bold = false;
+      if (endC) code = false;
+      return { w, b, c };
+    });
+  }
+  const esc = (s) => s.replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
+  function renderTokens(toks, n) {
+    return toks.slice(0, n).map((k) => {
+      let h = esc(k.w);
+      if (k.c) h = `<code>${h}</code>`;
+      if (k.b) h = `<strong>${h}</strong>`;
+      return h;
+    }).join(" ");
+  }
+  const chat = { voice: false, start: performance.now() / 1000, n: 0, petMood: "idle" };
+  const el = {
+    bubble: $("#bubble"), status: $("#bStatus"), prompt: $("#bPrompt"), body: $("#bBody"),
+    text: $("#cText"), caret: $("#cCaret"), ph: $("#cPh"), orb: $("#orb"), hint: $("#orbHint"),
+    bars: Array.from(document.querySelectorAll("#orb .bars i")),
+  };
+  const last = {};
+  function setText(node, key, value) { if (last[key] !== value) { last[key] = value; node.textContent = value; } }
+  function setHTML(node, key, value) { if (last[key] !== value) { last[key] = value; node.innerHTML = value; } }
+  function setHidden(node, key, value) { if (last[key] !== value) { last[key] = value; node.hidden = value; } }
+
+  function chatFrame(t) {
+    const LOOP = chat.voice ? 7.8 : 11;
+    let tt = t - chat.start;
+    if (tt >= LOOP) { chat.start = t; chat.n++; tt = 0; }
+    const set = chat.voice ? VQA : QA;
+    const item = set[chat.n % set.length];
+    const toks = tokens(item.a);
+    let typed = "", ph = "Work with Claude", showBubble = false, status = "Claude", bodyN = 0, mood = "idle", level = 0.15;
+    if (!chat.voice) {
+      if (tt >= 0.4 && tt < 2.4) { typed = item.q.slice(0, Math.floor(((tt - 0.4) / 2.0) * item.q.length)); }
+      else if (tt >= 2.4) {
+        showBubble = true;
+        if (tt < 3.2) { status = "Thinking…"; mood = "thinking"; }
+        else if (tt < 6.6) { bodyN = Math.ceil(((tt - 3.2) / 3.4) * toks.length); mood = "speaking"; }
+        else { bodyN = toks.length; mood = tt < 8.2 ? "happy" : "idle"; }
+      }
+    } else {
+      ph = "Listening…";
+      if (tt < 2.8) {
+        mood = "listening";
+        const words = item.q.split(" ");
+        typed = tt < 0.3 ? "" : words.slice(0, Math.ceil(((tt - 0.3) / 2.5) * words.length)).join(" ");
+        level = 0.3 + 0.65 * Math.abs(Math.sin(tt * 13) * Math.sin(tt * 7.1));
+      } else {
+        ph = "Voice mode · tap the orb to stop";
+        showBubble = true;
+        if (tt < 3.5) { status = "Thinking…"; mood = "thinking"; }
+        else if (tt < 7.2) { status = "Claude · speaking"; bodyN = Math.ceil(((tt - 3.5) / 3.7) * toks.length); mood = "speaking"; }
+        else { bodyN = toks.length; mood = "happy"; }
+      }
+    }
+    chat.petMood = mood;
+    setText(el.text, "text", typed);
+    setHidden(el.ph, "ph", typed.length > 0);
+    setText(el.ph, "phText", ph);
+    setHidden(el.caret, "caret", chat.voice && typed.length === 0);
+    setHidden(el.bubble, "bubble", !showBubble);
+    if (showBubble) {
+      setText(el.status, "status", status);
+      setText(el.prompt, "prompt", item.q);
+      setHTML(el.body, "body", renderTokens(toks, Math.min(bodyN, toks.length)));
+    }
+    if (chat.voice) {
+      const wob = [0.55, 1, 0.8, 0.45];
+      el.bars.forEach((b, i) => { b.style.height = `${5 + 11 * Math.max(0.15, level) * wob[i]}px`; });
+      el.orb.style.setProperty("--ring", String(1 + level * 0.55));
+    }
+  }
+  const compCv = $("#cvComposer");
+  scene(compCv, (t) => {
+    chatFrame(t);
+    const { ctx } = prep(compCv);
+    const px = 6;
+    const look = { mood: chat.petMood, mouth: Math.floor(t * 9) % 3 !== 0, calm: reduce };
+    paintClawd(ctx, px, look, t, 0, px);
+    paintGlyph(ctx, px, chat.petMood, t, 0, px);
+  });
+  el.orb.addEventListener("click", () => {
+    chat.voice = !chat.voice;
+    chat.start = performance.now() / 1000;
+    chat.n = 0;
+    el.orb.setAttribute("aria-pressed", String(chat.voice));
+    el.orb.setAttribute("aria-label", chat.voice ? "Stop voice mode" : "Try voice mode");
+    el.hint.textContent = chat.voice ? "Voice mode is on. Tap the orange orb to stop." : "Tap the white orb to try voice mode.";
+    if (reduce) drawAll(performance.now() / 1000 + (chat.voice ? 7.3 : 7));
+  });
+
+  // Status demo
+  const STEPS = [
+    [0, "working", "Thinking…"],
+    [1.6, "working", "Reading src/auth.ts"],
+    [3.2, "working", "Editing LoginForm.tsx"],
+    [4.8, "working", "Running npm test"],
+    [6.8, "alert", "Waiting for your OK to run git push"],
+    [9.4, "happy", "All done"],
+    [11.8, "idle", "Nothing running"],
+  ];
+  const HEADS = { working: "Claude is working · my-app", alert: "Claude needs you · my-app", happy: "Done ✓ · my-app", idle: "All quiet · my-app" };
+  const sCard = $("#sCard"), sHead = $("#sHead"), sDetail = $("#sDetail"), statusCv = $("#cvStatus");
+  scene(statusCv, (t) => {
+    const tt = t % 13.4;
+    let step = STEPS[0];
+    for (const st of STEPS) if (tt >= st[0]) step = st;
+    const mood = step[1];
+    setText(sHead, "sHead", HEADS[mood]);
+    setText(sDetail, "sDetail", step[2]);
+    const cls = "status-card" + (mood === "alert" ? " alert" : mood === "happy" ? " done" : "");
+    if (last.sCls !== cls) { last.sCls = cls; sCard.className = cls; }
+    const { ctx } = prep(statusCv);
+    const px = 6;
+    paintClawd(ctx, px, { mood, calm: reduce }, t, 0, px);
+    paintGlyph(ctx, px, mood, t, 0, px);
+  });
+
+  // The spar
+  const fight = { start: performance.now() / 1000, n: 0, scored: false, score: { clawd: 4, codex: 1, draws: 1 } };
+  const OUTCOMES = ["clawd", "clawd", "draw", "codex", "clawd"];
+  const TAUNTS = ["Tabs vs spaces. Settle it!", "En garde, Codex!", "Last to ship buys tokens!", "Code review… in the ring!"];
+  const RESULTS = {
+    clawd: ["GG, Codex 🤝", "Flawless refactor!", "Ship it! 🏆"],
+    codex: ["Oof. Codex got me.", "Rematch after this build…"],
+    draw: ["Draw! Merge conflict resolved.", "Even match. Friends again!"],
+  };
+  const FIGHT_LOOP = 9.6;
+  const scoreEls = { clawd: $("#scClawd"), codex: $("#scCodex"), draws: $("#scDraw") };
+  function bumpScore(outcome) {
+    const key = outcome === "draw" ? "draws" : outcome;
+    fight.score[key]++;
+    const node = scoreEls[key];
+    node.textContent = String(fight.score[key]);
+    node.classList.remove("bump");
+    void node.offsetWidth;
+    node.classList.add("bump");
+  }
+  const ease = (x) => { const c = Math.min(1, Math.max(0, x)); return c * c * (3 - 2 * c); };
+  const fightCv = $("#cvFight");
+  function drawFight(t, fixedT) {
+    let tt = fixedT !== undefined ? fixedT : t - fight.start;
+    if (fixedT === undefined && tt >= FIGHT_LOOP) { fight.start = t; fight.n++; fight.scored = false; tt = 0; }
+    const outcome = OUTCOMES[fight.n % OUTCOMES.length];
+    if (fixedT === undefined && tt >= 5.0 && !fight.scored) { fight.scored = true; bumpScore(outcome); }
+    const { ctx, w, h } = prep(fightCv);
+    const s = Math.min(1.15, Math.max(0.5, w / 900));
+    const px = Math.max(3, Math.round(6 * s));
+    const ground = h - 58 * s;
+    const clawdW = 16 * px;
+    const homeX = Math.max(10, w * 0.07);
+    const codexCX = w * 0.76 + 6 * px;
+
+    // Two composers: Clawd's on the left, the Codex pet's on the right.
+    paintBar(ctx, homeX - 12 * s, ground - 22 * s, Math.min(330 * s, w * 0.4), 120 * s, s, "Work with Claude", homeX + clawdW + 4 * s);
+    paintBar(ctx, w * 0.5, ground - 22 * s, w * 0.5 + 40, 120 * s, s, null, 0);
+    ctx.save();
+    ctx.font = `500 ${Math.max(10, 12 * s)}px ${MONO}`;
+    ctx.fillStyle = "rgba(255,255,255,0.5)";
+    ctx.textAlign = "center";
+    ctx.fillText("your Codex pet", codexCX, ground + 30 * s);
+    ctx.restore();
+
+    const stopX = codexCX - 80 * s - clawdW;
+    let cx = homeX, look = { mood: "idle", calm: reduce }, showClawd = true, showCodex = true, codexMood = "idle", codexT = t, tag = null;
+    if (tt < 1.2) { look = { mood: "happy", calm: reduce }; tag = TAUNTS[fight.n % TAUNTS.length]; }
+    else if (tt < 2.1) { cx = homeX + (stopX - homeX) * ease((tt - 1.2) / 0.9); look = { mood: "idle", walk: true, lookDX: 1 }; }
+    else if (tt < 5.0) { cx = stopX; showClawd = false; showCodex = false; }
+    else if (tt < 6.6) {
+      cx = stopX;
+      look = { mood: outcome === "codex" ? "dizzy" : "happy" };
+      codexMood = { clawd: "dizzy", codex: "happy", draw: "pleased" }[outcome];
+      codexT = tt - 5.0;
+      if (tt > 5.15 && tt < 6.45) tag = RESULTS[outcome][fight.n % RESULTS[outcome].length];
+    } else if (tt < 7.7) { cx = stopX + (homeX - stopX) * ease((tt - 6.6) / 1.1); look = { mood: "idle", walk: true, lookDX: -1 }; }
+
+    const y0 = ground - 12 * px;
+    if (showCodex) paintCodex(ctx, codexMood, codexT, codexCX, ground, 86 * s);
+    if (showClawd) {
+      paintClawd(ctx, px, look, t, cx, y0);
+      paintGlyph(ctx, px, look.mood, t, cx, y0);
+    }
+    if (tt >= 2.0 && tt < 5.6) {
+      const cloudX = (stopX + clawdW / 2 + codexCX) / 2;
+      const cloudY = ground - 6.5 * px;
+      paintCloud(ctx, tt - 2.0, cloudX, cloudY, Math.max(0.6, s * 1.05), 4127 + fight.n * 31);
+    }
+    if (tag) paintTag(ctx, tag, cx + clawdW / 2, y0 + 2 * px, Math.max(0.85, s), w);
+  }
+  scene(fightCv, (t) => drawFight(t, reduce ? 3.1 : undefined));
+  $("#sparAgain").addEventListener("click", () => {
+    const t = performance.now() / 1000;
+    fight.n++;
+    fight.start = t;
+    fight.scored = false;
+    if (reduce) {
+      const outcome = OUTCOMES[fight.n % OUTCOMES.length];
+      bumpScore(outcome);
+      drawFight(t, 5.6);
+    }
+  });
+
+  // Copy the install line
+  $("#copyBtn").addEventListener("click", () => {
+    const btn = $("#copyBtn");
+    const text = $("#installLine").textContent;
+    const done = () => { btn.textContent = "Copied"; setTimeout(() => { btn.textContent = "Copy"; }, 1600); };
+    const fallback = () => {
+      const range = document.createRange();
+      range.selectNodeContents($("#installLine"));
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      btn.textContent = "Press ⌘C";
+    };
+    try {
+      navigator.clipboard.writeText(text).then(done, fallback);
+    } catch (err) {
+      fallback();
+    }
+  });
+
+  // ---------- loop ----------
+  if ("IntersectionObserver" in window) {
+    const io = new IntersectionObserver((entries) => {
+      for (const en of entries) {
+        const sc = scenes.find((x) => x.el === en.target);
+        if (sc) sc.visible = en.isIntersecting;
+      }
+    }, { rootMargin: "120px" });
+    scenes.forEach((sc) => io.observe(sc.el));
+  }
+  // One scene failing must never stop the others from animating.
+  function drawSafe(sc, t) { try { sc.draw(t); } catch (err) { console.warn("scene", err); } }
+  function drawAll(t) { for (const sc of scenes) drawSafe(sc, t); }
+  let lastMs = 0;
+  function loop(ms) {
+    if (ms - lastMs >= 32) {
+      lastMs = ms;
+      const t = ms / 1000;
+      for (const sc of scenes) if (sc.visible) drawSafe(sc, t);
+    }
+    requestAnimationFrame(loop);
+  }
+  if (reduce) {
+    const still = () => drawAll(performance.now() / 1000 + 7);
+    still();
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(still);
+    codexImg.addEventListener("load", still);
+    window.addEventListener("resize", still);
+  } else {
+    drawAll(performance.now() / 1000);
+    requestAnimationFrame(loop);
+  }
+})();
+</script>
+
+</html>

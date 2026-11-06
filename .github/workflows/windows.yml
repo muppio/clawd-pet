@@ -1,0 +1,52 @@
+name: Windows app
+
+# Builds Clawd Pet for Windows (windows/) and packages the self-contained
+# win-x64 zip that /pet installs on Windows. The zip is uploaded as an
+# artifact on every change, and attached to a GitHub release when one is published.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'windows/**'
+      - '.github/workflows/windows.yml'
+  pull_request:
+    paths:
+      - 'windows/**'
+      - '.github/workflows/windows.yml'
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write # only used to attach the zip to a release
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Build and package (self-contained win-x64)
+        shell: pwsh
+        run: ./windows/release.ps1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: clawd-pet-win-x64
+          path: app/dist-windows/
+          if-no-files-found: error
+
+      - name: Attach to the release
+        if: github.event_name == 'release'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$env:TAG" app/dist-windows/ClawdPet-win-x64.zip app/dist-windows/VERSION --clobber
