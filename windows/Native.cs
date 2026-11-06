@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -77,6 +78,9 @@ static class Native
     [DllImport("user32.dll")] public static extern bool GetCursorPos(out POINT point);
     [DllImport("user32.dll")] static extern IntPtr MonitorFromWindow(IntPtr hWnd, uint flags);
     [DllImport("user32.dll", EntryPoint = "GetMonitorInfoW")] static extern bool GetMonitorInfo(IntPtr monitor, ref MONITORINFO info);
+    delegate bool MonitorEnumProc(IntPtr monitor, IntPtr hdc, ref RECT rect, IntPtr data);
+    [DllImport("user32.dll")] static extern bool EnumDisplayMonitors(IntPtr hdc, IntPtr clip, MonitorEnumProc proc, IntPtr data);
+    [DllImport("shcore.dll")] static extern int GetDpiForMonitor(IntPtr monitor, int dpiType, out uint dpiX, out uint dpiY);
     [DllImport("dwmapi.dll")] static extern int DwmGetWindowAttribute(IntPtr hWnd, int attribute, out int value, int size);
     [DllImport("kernel32.dll")] static extern bool AttachConsole(int processId);
 
@@ -105,11 +109,39 @@ static class Native
         DwmGetWindowAttribute(hWnd, DWMWA_CLOAKED, out int cloaked, sizeof(int)) == 0 && cloaked != 0;
 
     /// The monitor a window is on, in physical pixels.
-    public static RECT MonitorRect(IntPtr hWnd)
+    public static RECT MonitorRect(IntPtr hWnd) => Describe(MonitorFromWindow(hWnd, MONITOR_DEFAULTTONEAREST)).Bounds;
+
+    /// A monitor: its whole area and its work area (without the taskbar) in
+    /// physical pixels, and its scale (1.0 at 96 DPI, 1.5 at 150%).
+    public sealed record Monitor(RECT Bounds, RECT Work, double Scale);
+
+    public static List<Monitor> Monitors()
+    {
+        var list = new List<Monitor>();
+        MonitorEnumProc each = (IntPtr monitor, IntPtr hdc, ref RECT rect, IntPtr data) =>
+        {
+            list.Add(Describe(monitor));
+            return true;
+        };
+        EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, each, IntPtr.Zero);
+        GC.KeepAlive(each);
+        return list;
+    }
+
+    static Monitor Describe(IntPtr monitor)
     {
         var info = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
-        GetMonitorInfo(MonitorFromWindow(hWnd, MONITOR_DEFAULTTONEAREST), ref info);
-        return info.rcMonitor;
+        GetMonitorInfo(monitor, ref info);
+        double scale = 1;
+        try
+        {
+            if (GetDpiForMonitor(monitor, 0 /* MDT_EFFECTIVE_DPI */, out uint dpi, out _) == 0 && dpi > 0) scale = dpi / 96.0;
+        }
+        catch (Exception e) when (e is DllNotFoundException or EntryPointNotFoundException)
+        {
+            // Older than Windows 8.1: treat it as 100%.
+        }
+        return new Monitor(info.rcMonitor, info.rcWork, scale);
     }
 
     /// Back above other always-on-top windows, without taking focus.

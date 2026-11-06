@@ -4,6 +4,17 @@ All notable changes to Clawd Pet are listed here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-11-06
+
+### Fixed
+
+- Sparring: Clawd now runs to exactly where the Codex pet is, on Windows and on the Mac. He used to guess the pet's spot from the Codex window, whose layout changes with where the pet sits and what's open around it, so he could stop short or head the wrong way. Now he reads the position and size Codex saves for its pet (in `~/.codex/.codex-global-state.json`), and goes there only while a Codex window is showing it.
+- When the Codex pet is on a different screen from Clawd, he says so instead of doing nothing.
+
+### Added
+
+- `ClawdPet --codex-debug` on the Mac (`ClawdPet.exe --codex-windows` on Windows) prints what Clawd found when he looked for the Codex pet.
+
 ## [0.3.0] - 2026-11-06
 
 First public release.
@@ -21,4 +32,4 @@ First public release.
 - Click Clawd to open the Claude app, drag him anywhere, or press ⌃⌥C from anywhere to type to him. Right-click for mini mode, the model, spoken replies, sparring, **Snap back next to Codex** and **Open at login**.
 - Links for Shortcuts or Raycast: `clawdpet://ask?q=…`, `clawdpet://voice`, `clawdpet://new` and `clawdpet://fight`.
 - Native macOS app for macOS 14 or later, on Apple silicon and Intel.
-- Native Windows app for Windows 10 and 11 (x64), in `windows/`, with the same features. `/pet` downloads it from the GitHub release and checks its SHA-256, so no .NET is needed. Sparring may not find the Codex pet on Windows yet, because its window hasn't been measured.
+- Native Windows app for Windows 10 and 11 (x64), in `windows/`, with the same features. `/pet` downloads it from the GitHub release and checks its SHA-256, so no .NET is needed.

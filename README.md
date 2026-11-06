@@ -78,7 +78,7 @@ Click him to jump straight to the Claude app.
 
 Right-click Clawd and choose **Spar with Codex**, or type `/pet fight`. He picks a fight, runs over, and they vanish into a cartoon dust cloud. Then he walks home with the result. He wins about 45% of rounds, Codex about 40%, and the rest are draws. The score is kept. Turn on **Spar now and then** for a rematch every 20 to 40 quiet minutes.
 
-**Sparring needs the Codex pet on screen.** Open the Codex app and type `/pet` there to bring it out. If it isn't out, Clawd tells you, and **Spar with Codex** stays greyed out. Clawd finds it by where its window sits. He never records your screen, and he never changes the Codex pet.
+**Sparring needs the Codex pet on screen.** Open the Codex app and type `/pet` there to bring it out. If it isn't out, Clawd tells you, and **Spar with Codex** stays greyed out. Clawd runs to the spot Codex saved for its pet. He never records your screen, and he never changes the Codex pet.
 
 ### He has moods
 
@@ -133,7 +133,7 @@ What's different from the Mac:
   - microphone access for desktop apps (Settings › Privacy & security › Microphone)
 
   Spoken replies use the best English voice installed.
-- **Sparring** finds the Codex pet by its window, and the Windows Codex pet hasn't been measured yet. If Clawd can't see it, **Spar with Codex** stays greyed out. To help fix it, bring the Codex pet out, run this in PowerShell and share what it prints:
+- **Sparring** works as on the Mac. If Clawd ever can't find the Codex pet, bring it out, run this in PowerShell and share what it prints in an issue:
 
   ```powershell
   & "$env:LOCALAPPDATA\ClawdPet\ClawdPet.exe" --codex-windows | Out-String
@@ -152,7 +152,7 @@ Remove-Item -Recurse -Force "$env:LOCALAPPDATA\ClawdPet", "$env:USERPROFILE\.cla
 
 - **The microphone** is on only after you tap 🎤 or the voice orb. It stops when you stop talking, or when you tap again. Your Mac turns speech into text on the device whenever macOS supports that for your language. When it doesn't, macOS uses Apple's speech service.
 - **What goes to Claude** is only what you type or say. It runs through your own `claude` command with web search and web fetch as its only tools.
-- **Finding the Codex pet** uses only where the Codex window sits on screen. Clawd Pet doesn't record or capture your screen.
+- **Finding the Codex pet** uses where Codex's windows sit on screen, and the pet position and size that Codex saves in its own settings file (`~/.codex/.codex-global-state.json`). Clawd only reads those two values from it, and changes nothing. Clawd Pet doesn't record or capture your screen.
 - **Local files** on a Mac:
   - the app, in `~/Applications/Clawd Pet.app`
   - Claude Code's status for Clawd, in `~/.clawd-pet/status.json`

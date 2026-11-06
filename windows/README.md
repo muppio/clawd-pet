@@ -41,11 +41,11 @@ The `Windows app` workflow (`.github/workflows/windows.yml`) builds on `windows-
 
 If something looks off on a PC, start with these:
 
-1. **Codex pet detection** (`CodexPet` in `Fight.cs`) is a guess. Bring the Codex pet out and run:
+1. **Finding the Codex pet** (`CodexPet` in `Fight.cs`) reads the position and size Codex saves for its pet in `%USERPROFILE%\.codex\.codex-global-state.json`, converts it to physical pixels with the monitor's scale, and only trusts it while one of Codex's always-on-top windows covers that spot. To see what it found, bring the Codex pet out and run:
    ```powershell
    & "$env:LOCALAPPDATA\ClawdPet\ClawdPet.exe" --codex-windows | Out-String
    ```
-   It lists every Codex/ChatGPT window with its rect and styles, and what the heuristic makes of each. Adjust `Owners` and `PetCenter` to match. Sparring stays greyed out ("open the Codex pet first") whenever detection returns nothing.
+   It prints the saved spots, each monitor and its scale, every Codex/ChatGPT window with its rect and styles, and the result. Sparring stays greyed out ("open the Codex pet first") whenever nothing is found.
 2. **Transparency and click-through**: clicks beside Clawd should reach the app underneath. The composer and bubble shadows catch clicks a few pixels past their edges.
 3. **Speech**: dictation needs an English speech recognizer (Settings › Time & language › Speech) and microphone access for desktop apps.
 4. **Ctrl+Alt+C**: on some layouts this is AltGr+C (for example ć in Polish). While Clawd runs, he takes that key.

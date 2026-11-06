@@ -1338,7 +1338,17 @@ final class PetModel: ObservableObject {
         let codex = FightKit.codexPetCenter().map(toArena).flatMap { p -> CGPoint? in
             CGRect(origin: .zero, size: sf.size).insetBy(dx: 20, dy: 20).contains(p) ? p : nil
         }
-        guard let target = codex else { return } // the overlay is on another screen
+        guard let target = codex else { // the Codex pet is on another screen
+            let far = Bubble(
+                kind: .code,
+                status: "Too far to spar",
+                body: "The Codex pet is on another screen. Drag Clawd over to it, then try again. 🥊"
+            )
+            bubble = far
+            flash(.alert, 2)
+            after(10) { [weak self] in if self?.bubble?.id == far.id { self?.bubble = nil } }
+            return
+        }
         let dir: CGFloat = target.x < clawdCenter.x ? -1 : 1
         let spotY = abs(target.y - clawdCenter.y) > 120 ? target.y - petH / 2 : home.y
         let spot = CGPoint(x: target.x - dir * 74 - petW / 2, y: spotY)
@@ -1859,24 +1869,126 @@ struct FightScript {
 }
 
 enum FightKit {
-    /// Codex draws its pet inside a tall transparent overlay window that moves
-    /// with the pet; the pet sits at a fixed spot inside it (measured on the
-    /// ChatGPT/Codex app, Nov 2026). Returns the pet's center in Cocoa screen
-    /// coordinates, or nil when the overlay isn't on screen.
-    static func codexPetCenter() -> CGPoint? {
+    // Codex draws its pet inside a floating window that also holds the pet's
+    // tray, quick chat and captions, so where the pet sits inside that window
+    // changes with its layout. Clawd reads where Codex itself says the pet is:
+    // Codex saves the pet's top-left corner and the screen it's on (in points)
+    // to ~/.codex/.codex-global-state.json whenever the pet is dropped
+    // ("electron-avatar-overlay-bounds"), along with its size setting
+    // ("avatar-overlay-mascot-width-px", 80 to 224, 112 by default; frames are
+    // 192 x 208). A pet that was never moved sits at Codex's default spot, the
+    // bottom right of the visible screen, 24 points in. The spot only counts
+    // while one of Codex's floating windows covers it.
+
+    /// A saved spot: the pet's center from its screen's top-left, and that screen's size, in points.
+    struct Spot: Equatable { var center: CGPoint; var screen: CGSize }
+
+    struct SavedPet {
+        var spots: [Spot] = []
+        var size = CGSize(width: 112, height: 122)
+        var note = "no saved spot (the pet was never moved)"
+    }
+
+    static var codexStateURL: URL {
+        let env = ProcessInfo.processInfo.environment["CODEX_HOME"].flatMap { $0.isEmpty ? nil : $0 }
+        let home = env.map { URL(fileURLWithPath: $0) }
+            ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".codex")
+        return home.appendingPathComponent(".codex-global-state.json")
+    }
+
+    nonisolated(unsafe) private static var cached: (stamp: Date, pet: SavedPet)?
+
+    /// Codex's saved pet position and size, read again only when the file changes.
+    static func savedPet() -> SavedPet {
+        let url = codexStateURL
+        let stamp = (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+        if let c = cached, c.stamp == stamp { return c.pet }
+        var pet = SavedPet()
+        func num(_ v: Any?) -> CGFloat? { (v as? NSNumber).map { CGFloat($0.doubleValue) } }
+        if let data = try? Data(contentsOf: url),
+           let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] {
+            var width: CGFloat = 112
+            if let atoms = root["electron-persisted-atom-state"] as? [String: Any],
+               let w = num(atoms["avatar-overlay-mascot-width-px"]) {
+                width = min(224, max(80, w.rounded()))
+            }
+            pet.size = CGSize(width: width, height: ceil(width * 208 / 192))
+            if let bounds = root["electron-avatar-overlay-bounds"] as? [String: Any] {
+                var records = [bounds] // the latest one first
+                for key in ["byDisplayId", "byResolution"] {
+                    if let map = bounds[key] as? [String: Any] { records += map.values.compactMap { $0 as? [String: Any] } }
+                }
+                for r in records {
+                    guard let x = num(r["x"]), let y = num(r["y"]), let d = r["displayBounds"] as? [String: Any],
+                          let dx = num(d["x"]), let dy = num(d["y"]), let dw = num(d["width"]), let dh = num(d["height"]) else { continue }
+                    let spot = Spot(center: CGPoint(x: x - dx + pet.size.width / 2, y: y - dy + pet.size.height / 2),
+                                    screen: CGSize(width: dw, height: dh))
+                    if !pet.spots.contains(spot) { pet.spots.append(spot) }
+                }
+            }
+            if !pet.spots.isEmpty { pet.note = "\(pet.spots.count) saved spot(s)" }
+        } else {
+            pet.note = "couldn't read Codex's settings"
+        }
+        cached = (stamp, pet)
+        return pet
+    }
+
+    /// Codex's floating windows (the pet's among them), in top-left screen coordinates.
+    static func floatingCodexWindows() -> [CGRect] {
         let opts: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
-        guard let list = CGWindowListCopyWindowInfo(opts, kCGNullWindowID) as? [[String: Any]] else { return nil }
-        for w in list {
+        guard let list = CGWindowListCopyWindowInfo(opts, kCGNullWindowID) as? [[String: Any]] else { return [] }
+        return list.compactMap { w -> CGRect? in
             let owner = w[kCGWindowOwnerName as String] as? String ?? ""
-            guard owner == "ChatGPT" || owner == "Codex" else { continue } // not "Codex Computer Use"
-            guard (w[kCGWindowLayer as String] as? Int ?? 0) > 0,
+            guard owner == "ChatGPT" || owner == "Codex", // not "Codex Computer Use"
+                  (w[kCGWindowLayer as String] as? Int ?? 0) > 0,
                   let d = w[kCGWindowBounds as String] as? NSDictionary,
                   let r = CGRect(dictionaryRepresentation: d as CFDictionary),
-                  (900 ... 1400).contains(r.width), r.height > 1800 else { continue } // the tall pet overlay
-            let primaryTop = NSScreen.screens.first?.frame.maxY ?? 0
-            return CGPoint(x: r.minX + 736, y: primaryTop - (r.minY + 1295))
+                  r.width >= 40, r.height >= 40 else { return nil }
+            return r
         }
-        return nil
+    }
+
+    /// The Codex pet's center in Cocoa screen coordinates, or nil when it isn't out.
+    static func codexPetCenter() -> CGPoint? { locate().center }
+
+    static func locate() -> (center: CGPoint?, how: String) {
+        let windows = floatingCodexWindows()
+        guard !windows.isEmpty else { return (nil, "no floating Codex window") }
+        let pet = savedPet()
+        let primaryTop = NSScreen.screens.first?.frame.maxY ?? 0
+        func topLeft(_ r: CGRect) -> CGRect { CGRect(x: r.minX, y: primaryTop - r.maxY, width: r.width, height: r.height) }
+        let screens = NSScreen.screens.map { (frame: topLeft($0.frame), visible: topLeft($0.visibleFrame)) }
+        func found(_ p: CGPoint) -> Bool { windows.contains { $0.contains(p) } }
+
+        // Where Codex saved the pet, on a screen of the size it was saved on.
+        for spot in pet.spots {
+            for s in screens where abs(s.frame.width - spot.screen.width) < 2 && abs(s.frame.height - spot.screen.height) < 2 {
+                let p = CGPoint(x: s.frame.minX + spot.center.x, y: s.frame.minY + spot.center.y)
+                if found(p) { return (CGPoint(x: p.x, y: primaryTop - p.y), "where Codex saved it") }
+            }
+        }
+        // A pet that was never moved: Codex's default spot.
+        for s in screens {
+            let p = CGPoint(x: s.visible.maxX - 24 - pet.size.width / 2, y: s.visible.maxY - 24 - pet.size.height / 2)
+            if found(p) { return (CGPoint(x: p.x, y: primaryTop - p.y), "Codex's default spot") }
+        }
+        return (nil, "Codex windows are up, but none covers where the pet should be")
+    }
+
+    /// `ClawdPet --codex-debug`: everything Clawd used to find the pet.
+    static func describe() -> String {
+        let pet = savedPet()
+        var out = ["Codex settings: \(codexStateURL.path)",
+                   "  \(pet.note); pet size \(Int(pet.size.width))x\(Int(pet.size.height)) points"]
+        for s in pet.spots {
+            out.append("  saved: center \(Int(s.center.x)),\(Int(s.center.y)) on a \(Int(s.screen.width))x\(Int(s.screen.height)) screen")
+        }
+        for s in NSScreen.screens { out.append("Screen \(s.frame) visible \(s.visibleFrame)") }
+        for r in floatingCodexWindows() { out.append("Floating Codex window \(r)") }
+        let (center, how) = locate()
+        out.append(center.map { "Result: out, pet at \(Int($0.x)),\(Int($0.y)) (Cocoa points), \(how)" } ?? "Result: missing (\(how))")
+        return out.joined(separator: "\n")
     }
 }
 
@@ -2186,6 +2298,10 @@ enum ClawdPetMain {
         }
         if args.contains("--codex-check") { // used by /pet fight
             print(FightKit.codexPetCenter() != nil ? "out" : "missing")
+            return
+        }
+        if args.contains("--codex-debug") { // what Clawd sees when he looks for the Codex pet
+            print(FightKit.describe())
             return
         }
         let app = NSApplication.shared

@@ -85,7 +85,7 @@ Try to keep the two apps in step. If you change how Clawd behaves on one side, m
 - **New taunts and result lines.** The pre-fight taunts and the win, loss and draw lines are short lists in `startFight` in `app/ClawdPet.swift` and `StartFight` in `windows/PetModel.cs`. Add yours to both.
 - **New moods.** Moods are the `Mood` enum in `app/ClawdPet.swift` and `windows/Pet.cs`. On Windows, the pixel art is in `windows/ClawdPainter.cs`. A new mood needs a look and a moment when Clawd shows it.
 - **More languages for speech.** Dictation, voice and spoken replies are English only today: `en-US` on the Mac, and an English recognizer and voice on Windows.
-- **Make sparring work on Windows.** The Windows app finds the Codex pet by its window, and that window hasn't been measured yet. Bring the Codex pet out, run `ClawdPet.exe --codex-windows`, and adjust `CodexPet` in `windows/Fight.cs` to match. [`windows/README.md`](windows/README.md) has the details.
+- **Keep sparring on target.** Clawd finds the Codex pet from the position Codex saves for it (`FightKit` in `app/ClawdPet.swift`, `CodexPet` in `windows/Fight.cs`). If a Codex update moves things, `ClawdPet --codex-debug` (Mac) or `ClawdPet.exe --codex-windows` (Windows) shows what he found.
 - **A Linux port.** There isn't one yet. The Windows port shows how the Mac app maps to another platform, and `/pet` in `hooks/register.ts` would need a Linux branch.
 
 ## Issues

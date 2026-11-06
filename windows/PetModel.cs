@@ -672,7 +672,20 @@ sealed class PetModel
         var clawdCenter = new Point(home.X + Pet.PetWidth / 2, home.Y + Pet.PetHeight / 2);
         var target = ToArena(codexCenter.Value);
         var inner = new Rect(20, 20, Math.Max(0, screen.Width - 40), Math.Max(0, screen.Height - 40));
-        if (!inner.Contains(target)) return; // the Codex pet is on another screen
+        if (!inner.Contains(target))
+        {
+            var far = new Bubble(
+                BubbleKind.Code,
+                "Too far to spar",
+                Body: "The Codex pet is on another screen. Drag Clawd over to it, then try again. 🥊");
+            Bubble = far;
+            Flash(Mood.Alert, 2);
+            Later.After(10, () =>
+            {
+                if (Bubble?.Id == far.Id) Bubble = null;
+            });
+            return;
+        }
 
         double dir = target.X < clawdCenter.X ? -1 : 1;
         double spotY = Math.Abs(target.Y - clawdCenter.Y) > 120 ? target.Y - Pet.PetHeight / 2 : home.Y;

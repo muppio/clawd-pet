@@ -20,6 +20,7 @@ Clawd Pet is an unofficial fan project and isn't affiliated with Anthropic or Op
 - **`clawdpet://` links.** `clawdpet://ask?q=…` sends its text to Claude as a question. The other links start voice, open a new chat or start a sparring match.
 - **Local files.** On a Mac, the app is installed to `~/Applications/Clawd Pet.app`, and its data lives in `~/.clawd-pet`. That includes `status.json`, which the mod writes on every turn with the start of your prompt, the current step and the project folder's name. On Windows, the app is in `%LOCALAPPDATA%\ClawdPet`, its data is in `%USERPROFILE%\.clawd-pet`, and `clawdpet://` and **Open at login** are per-user registry entries.
 - **Your screen**, only to find where the Codex pet's window is. Clawd Pet doesn't record or capture your screen.
+- **Codex's settings file** (`~/.codex/.codex-global-state.json`), read only, for the position and size Codex saved for its pet. Nothing else in it is used, and Clawd Pet never writes to it.
 
 ## Supported versions
 

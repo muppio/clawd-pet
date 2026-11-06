@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
@@ -31,36 +32,38 @@ sealed record FightScript(
 }
 
 // =============================================================================
-//  CALIBRATE ON A REAL WINDOWS PC: finding the Codex pet
+//  Finding the Codex pet
 // =============================================================================
 //
-// Everything Windows-specific about spotting the Codex pet lives in this one
-// class. On the Mac the pet is drawn inside a tall, transparent, floating
-// overlay window owned by the "Codex" or "ChatGPT" app, at a fixed spot inside
-// it (measured Nov 2026). How the Windows app draws it hasn't been measured
-// yet, so this is a best guess:
+// Codex draws its pet inside an always-on-top window that also holds the pet's
+// tray, quick chat and captions, so where the pet sits inside that window
+// changes with its layout. Guessing from the window sent Clawd to the wrong
+// spot, so Clawd reads where Codex itself says the pet is instead:
 //
-//   1. Only windows of a process named in Owners count.
-//   2. The window must be visible, not minimized, not cloaked and topmost
-//      (the pet floats above other apps; the main app window doesn't).
-//   3. A small window is taken to be the pet itself: its center.
-//   4. A big transparent overlay uses the Mac's spot, scaled to the window.
+//   * Codex saves the pet's top-left corner and the screen it's on, in DIPs,
+//     to %USERPROFILE%\.codex\.codex-global-state.json whenever the pet is
+//     dropped ("electron-avatar-overlay-bounds"), and keeps the pet's size
+//     setting there too ("avatar-overlay-mascot-width-px", 80 to 224, 112 by
+//     default; its frames are 192 x 208).
+//   * A pet that was never moved sits at Codex's default spot: the bottom
+//     right of the work area, 24 DIPs in.
 //
-// To calibrate: bring the Codex pet out, then run
-//     & "$env:LOCALAPPDATA\ClawdPet\ClawdPet.exe" --codex-windows | Out-String
-// It lists every Codex/ChatGPT window with its rect and styles, and what this
-// class makes of each. Adjust Owners and PetCenter to match, and keep the
-// "pet isn't out" case returning null: that's what greys out sparring.
+// That spot only counts while one of Codex's always-on-top windows covers it,
+// so a pet that's put away (or an old save) never sends Clawd off to an empty
+// spot, and sparring stays greyed out instead.
+//
+// `ClawdPet.exe --codex-windows | Out-String` prints what Clawd found.
 static class CodexPet
 {
     /// Process names (without .exe) that can own the pet. Not "Codex Computer Use".
     static readonly string[] Owners = { "Codex", "ChatGPT" };
 
-    /// Biggest window that still counts as "just the pet", in physical pixels.
-    const int SmallPet = 600;
+    const double DefaultWidth = 112, FrameAspect = 192.0 / 208.0, DefaultInset = 24;
 
-    /// The Mac overlay's pet spot as a fraction of the overlay (736 / ~1180, 1295 / ~1960 points).
-    const double OverlayX = 0.62, OverlayY = 0.66;
+    /// A saved spot: the pet's center from its screen's top-left corner, and that screen's size, all in DIPs.
+    public sealed record Spot(double X, double Y, double ScreenWidth, double ScreenHeight);
+
+    public sealed record Saved(IReadOnlyList<Spot> Spots, double Width, double Height, string Note);
 
     public sealed record WindowInfo(
         IntPtr Handle,
@@ -72,30 +75,132 @@ static class CodexPet
         long Style,
         bool Cloaked);
 
-    /// The Codex pet's center on screen in physical pixels, or null when it isn't out.
-    public static Point? FindCenter()
+    static (DateTime Stamp, Saved Value)? cache;
+
+    public static string StatePath
     {
-        foreach (var w in Windows())
+        get
         {
-            if (PetCenter(w) is Point p) return p;
+            var home = Environment.GetEnvironmentVariable("CODEX_HOME");
+            if (string.IsNullOrEmpty(home))
+                home = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".codex");
+            return Path.Combine(home, ".codex-global-state.json");
         }
-        return null;
     }
 
-    static Point? PetCenter(WindowInfo w)
+    /// The Codex pet's center on screen in physical pixels, or null when it isn't out.
+    public static Point? FindCenter() => Locate(out _);
+
+    static Point? Locate(out string how)
     {
-        if (w.Cloaked) return null;
-        if ((w.ExStyle & Native.WS_EX_TOPMOST) == 0) return null; // the main app window isn't always-on-top
-        int width = w.Rect.Width, height = w.Rect.Height;
-        if (width < 40 || height < 40) return null;
+        var floating = Windows().Where(Floating).ToList();
+        if (floating.Count == 0)
+        {
+            how = "no always-on-top Codex window";
+            return null;
+        }
+        var saved = ReadSaved();
+        var monitors = Native.Monitors();
 
-        if (width <= SmallPet && height <= SmallPet && (w.Style & Native.WS_CAPTION) != Native.WS_CAPTION)
-            return new Point(w.Rect.Left + width / 2.0, w.Rect.Top + height / 2.0);
+        // Where Codex saved the pet, on a screen of the size it was saved on.
+        foreach (var spot in saved.Spots)
+        {
+            foreach (var m in monitors)
+            {
+                if (Math.Abs(m.Bounds.Width / m.Scale - spot.ScreenWidth) > 2 || Math.Abs(m.Bounds.Height / m.Scale - spot.ScreenHeight) > 2) continue;
+                var p = new Point(m.Bounds.Left + spot.X * m.Scale, m.Bounds.Top + spot.Y * m.Scale);
+                if (floating.Any(w => Covers(w.Rect, p)))
+                {
+                    how = "where Codex saved it";
+                    return p;
+                }
+            }
+        }
 
-        bool overlay = (w.ExStyle & (Native.WS_EX_LAYERED | Native.WS_EX_TRANSPARENT | Native.WS_EX_NOREDIRECTIONBITMAP)) != 0;
-        if (overlay) return new Point(w.Rect.Left + width * OverlayX, w.Rect.Top + height * OverlayY);
+        // A pet that was never moved: Codex's default spot.
+        foreach (var m in monitors)
+        {
+            var p = new Point(
+                m.Work.Right - (DefaultInset + saved.Width / 2) * m.Scale,
+                m.Work.Bottom - (DefaultInset + saved.Height / 2) * m.Scale);
+            if (floating.Any(w => Covers(w.Rect, p)))
+            {
+                how = "Codex's default spot";
+                return p;
+            }
+        }
+        how = "Codex windows are up, but none covers where the pet should be";
         return null;
     }
+
+    static bool Floating(WindowInfo w) =>
+        !w.Cloaked && (w.ExStyle & Native.WS_EX_TOPMOST) != 0 && w.Rect.Width >= 40 && w.Rect.Height >= 40;
+
+    static bool Covers(Native.RECT r, Point p) => p.X >= r.Left && p.X < r.Right && p.Y >= r.Top && p.Y < r.Bottom;
+
+    /// Codex's saved pet position and size, read again only when the file changes.
+    public static Saved ReadSaved()
+    {
+        var path = StatePath;
+        DateTime stamp;
+        try
+        {
+            stamp = File.GetLastWriteTimeUtc(path);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            stamp = DateTime.MinValue;
+        }
+        if (cache is { } c && c.Stamp == stamp) return c.Value;
+        var value = Parse(path);
+        cache = (stamp, value);
+        return value;
+    }
+
+    static Saved Parse(string path)
+    {
+        double width = DefaultWidth;
+        var spots = new List<Spot>();
+        string note;
+        try
+        {
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            using var doc = JsonDocument.Parse(stream);
+            var root = doc.RootElement;
+            if (root.TryGetProperty("electron-persisted-atom-state", out var atoms) && atoms.ValueKind == JsonValueKind.Object &&
+                atoms.TryGetProperty("avatar-overlay-mascot-width-px", out var size) && size.ValueKind == JsonValueKind.Number)
+                width = Math.Round(Math.Clamp(size.GetDouble(), 80, 224));
+            double height = Math.Ceiling(width / FrameAspect);
+
+            void Add(JsonElement r)
+            {
+                if (r.ValueKind != JsonValueKind.Object || Num(r, "x") is not double x || Num(r, "y") is not double y) return;
+                if (!r.TryGetProperty("displayBounds", out var d) || Num(d, "x") is not double dx || Num(d, "y") is not double dy ||
+                    Num(d, "width") is not double dw || Num(d, "height") is not double dh) return;
+                var spot = new Spot(x - dx + width / 2, y - dy + height / 2, dw, dh);
+                if (!spots.Contains(spot)) spots.Add(spot);
+            }
+
+            if (root.TryGetProperty("electron-avatar-overlay-bounds", out var bounds) && bounds.ValueKind == JsonValueKind.Object)
+            {
+                Add(bounds); // the latest one first
+                foreach (var key in new[] { "byDisplayId", "byResolution" })
+                {
+                    if (bounds.TryGetProperty(key, out var map) && map.ValueKind == JsonValueKind.Object)
+                        foreach (var entry in map.EnumerateObject()) Add(entry.Value);
+                }
+            }
+            note = spots.Count > 0 ? $"{spots.Count} saved spot(s)" : "no saved spot (the pet was never moved)";
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException)
+        {
+            note = $"couldn't read Codex's settings ({e.GetType().Name})";
+        }
+        return new Saved(spots, width, Math.Ceiling(width / FrameAspect), note);
+    }
+
+    static double? Num(JsonElement o, string name) =>
+        o.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetDouble() : null;
 
     static List<WindowInfo> Windows()
     {
@@ -123,9 +228,16 @@ static class CodexPet
         return list;
     }
 
-    /// `ClawdPet.exe --codex-windows`: what calibrating needs to know.
+    /// `ClawdPet.exe --codex-windows`: everything Clawd used to find the pet.
     public static void Describe(TextWriter o)
     {
+        var saved = ReadSaved();
+        o.WriteLine($"Codex settings: {StatePath}");
+        o.WriteLine($"  {saved.Note}; pet size {saved.Width:0}x{saved.Height:0} DIPs");
+        foreach (var s in saved.Spots)
+            o.WriteLine($"  saved: center {s.X:0},{s.Y:0} on a {s.ScreenWidth:0}x{s.ScreenHeight:0} screen (DIPs)");
+        foreach (var m in Native.Monitors())
+            o.WriteLine($"Monitor {m.Bounds} work {m.Work} scale {m.Scale:0.##} = {m.Bounds.Width / m.Scale:0}x{m.Bounds.Height / m.Scale:0} DIPs");
         var all = Windows();
         o.WriteLine($"Visible windows owned by {string.Join(" or ", Owners)}: {all.Count}");
         foreach (var w in all)
@@ -141,12 +253,13 @@ static class CodexPet
                 (w.Style & Native.WS_CAPTION) == Native.WS_CAPTION ? "caption" : null,
                 w.Cloaked ? "cloaked" : null,
             }.Where(f => f != null));
-            var center = PetCenter(w);
             o.WriteLine(
                 $"  {w.Process} hwnd=0x{w.Handle.ToInt64():X} rect={w.Rect} exstyle=0x{w.ExStyle:X} [{flags}] " +
-                $"class=\"{w.Class}\" title=\"{w.Title}\" -> {(center is Point c ? $"pet at {c.X:0},{c.Y:0}" : "not the pet")}");
+                $"class=\"{w.Class}\" title=\"{w.Title}\"{(Floating(w) ? " (can hold the pet)" : "")}");
         }
-        o.WriteLine(FindCenter() is Point p ? $"Result: out, pet at {p.X:0},{p.Y:0} (physical pixels)" : "Result: missing");
+        o.WriteLine(Locate(out var how) is Point p
+            ? $"Result: out, pet at {p.X:0},{p.Y:0} (physical pixels), {how}"
+            : $"Result: missing ({how})");
     }
 }
 

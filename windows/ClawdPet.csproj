@@ -21,7 +21,7 @@
     <ApplicationIcon>ClawdPet.ico</ApplicationIcon>
     <Product>Clawd Pet</Product>
     <Description>Clawd, a floating pixel buddy for Claude Code (unofficial fan project)</Description>
-    <Version>0.3.0</Version>
+    <Version>0.3.1</Version>
     <Copyright>MIT License</Copyright>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
