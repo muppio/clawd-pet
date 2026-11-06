@@ -1,6 +1,6 @@
 <#
-  Makes the prebuilt Windows app that ships inside the plugin, so people can
-  install Clawd on Windows without the .NET SDK:
+  Makes the self-contained Windows app that GitHub releases carry (and that
+  /pet downloads), so people can run Clawd on Windows without the .NET SDK:
     app\dist-windows\ClawdPet-win-x64.zip   (self-contained, x64)
     app\dist-windows\VERSION                (the build id /pet compares with the installed app's)
   Run it on Windows after changing anything in windows\, before publishing,

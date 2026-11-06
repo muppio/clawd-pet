@@ -21,4 +21,4 @@ First public release.
 - Click Clawd to open the Claude app, drag him anywhere, or press ⌃⌥C from anywhere to type to him. Right-click for mini mode, the model, spoken replies, sparring, **Snap back next to Codex** and **Open at login**.
 - Links for Shortcuts or Raycast: `clawdpet://ask?q=…`, `clawdpet://voice`, `clawdpet://new` and `clawdpet://fight`.
 - Native macOS app for macOS 14 or later, on Apple silicon and Intel.
-- Native Windows app for Windows 10 and 11 (x64), in `windows/`, with the same features. Sparring may not find the Codex pet on Windows yet, because its window hasn't been measured.
+- Native Windows app for Windows 10 and 11 (x64), in `windows/`, with the same features. `/pet` downloads it from the GitHub release and checks its SHA-256, so no .NET is needed. Sparring may not find the Codex pet on Windows yet, because its window hasn't been measured.

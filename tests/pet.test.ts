@@ -16,6 +16,8 @@ type Fake = {
   codexOut: boolean
   bundled: string // the prebuilt app's build id ('' = this copy ships none)
   installedBuild: string // the installed app's build id
+  release: string // app/dist-windows/release.json ('' = none)
+  downloadFails: boolean // the Windows download errors out
 }
 
 const WINDOWS_ENV: Record<string, string> = {
@@ -27,7 +29,7 @@ const WINDOWS_ENV: Record<string, string> = {
 function engine(on: On, overrides: Partial<Fake> = {}): Fake {
   const fake: Fake = {
     writes: [], statusPaths: [], runs: [], windows: false, running: false, installed: true, codexOut: true,
-    bundled: '', installedBuild: '', ...overrides,
+    bundled: '', installedBuild: '', release: '', downloadFails: false, ...overrides,
   }
   on('env.get', (_, e) => ({ value: fake.windows ? WINDOWS_ENV[e.name] : '/Users/tester' }))
   on('session.cwd', () => ({ value: fake.windows ? 'C:\\Users\\tester\\code\\my-app' : '/Users/tester/code/my-app' }))
@@ -50,6 +52,7 @@ function engine(on: On, overrides: Partial<Fake> = {}): Fake {
     if (e.path.endsWith('/app/dist/VERSION')) return { value: fake.bundled }
     if (e.path.endsWith('/Contents/Resources/build-id')) return { value: fake.installedBuild }
     if (e.path.endsWith('\\app\\dist-windows\\VERSION')) return { value: fake.bundled }
+    if (e.path.endsWith('\\app\\dist-windows\\release.json')) return { value: fake.release }
     if (e.path.endsWith('C:\\Users\\tester\\AppData\\Local\\ClawdPet\\build-id')) return { value: fake.installedBuild }
     return { value: '' }
   })
@@ -70,6 +73,9 @@ function engine(on: On, overrides: Partial<Fake> = {}): Fake {
         : 'INFO: No tasks are running which match the specified criteria.\r\n')
     }
     if (argv[1] === '--codex-check') return ok(fake.codexOut ? 'out\n' : 'missing\n')
+    if (fake.downloadFails && (argv[argv.length - 1] ?? '').includes('Invoke-WebRequest')) {
+      return { value: { ...fail.value, stderr: 'Invoke-WebRequest : Unable to connect to the remote server\r\n' } }
+    }
     return ok()
   })
   return fake
@@ -291,4 +297,55 @@ test('on Windows, /pet rebuild and a missing app build from windows/ with build.
   expect(rebuilt.text).toContain('rebuilt')
   expect(builds().length).toBe(2)
   expect(fake.runs.some(r => MAC_ONLY.includes(r[0] ?? ''))).toBe(false)
+})
+
+const SHA = 'ab'.repeat(32)
+const URL = 'https://github.com/muppio/clawd-pet/releases/download/v0.3.0/ClawdPet-win-x64.zip'
+const RELEASE = JSON.stringify({ buildId: 'win-2', url: URL, sha256: SHA, size: 60_794_712 })
+
+test('on Windows, /pet downloads the pinned release, checks its SHA-256 and installs it once', async ($, on) => {
+  const fake = engine(on, { windows: true, running: false, installed: false, release: RELEASE })
+  await $.session.start(winStart)
+
+  const opened = await $.command.run({ command: 'pet', args: '' })
+  expect(opened.text).toContain('Clawd is on your screen')
+  const downloads = () => fake.runs.filter(r => script(r).includes('Invoke-WebRequest'))
+  expect(downloads().length).toBe(1)
+  const ps = script(downloads()[0] ?? [])
+  expect(ps).toContain(`-Uri '${URL}' -OutFile '${WIN_APP}-download.zip'`)
+  expect(ps).toContain(`Get-FileHash -LiteralPath '${WIN_APP}-download.zip' -Algorithm SHA256).Hash -ne '${SHA}'`)
+  // The checksum is checked before anything is unpacked.
+  expect(ps.indexOf('Get-FileHash')).toBeLessThan(ps.indexOf('Expand-Archive'))
+  expect(ps).toContain(`-DestinationPath '${WIN_APP}'`)
+  expect(fake.runs.some(r => (r[r.length - 1] ?? '').endsWith('\\windows\\build.ps1'))).toBe(false)
+  expect(fake.runs.some(r => MAC_ONLY.includes(r[0] ?? ''))).toBe(false)
+
+  // Already on that build: no second download.
+  fake.installed = true
+  fake.installedBuild = 'win-2'
+  await $.command.run({ command: 'pet', args: '' })
+  expect(downloads().length).toBe(1)
+})
+
+test('on Windows, a failed download is explained and a bad release.json is ignored', async ($, on) => {
+  const fake = engine(on, { windows: true, running: false, installed: false, release: RELEASE, downloadFails: true })
+  await $.session.start(winStart)
+
+  const failed = await $.command.run({ command: 'pet', args: '' })
+  expect(failed.text).toContain("Couldn't download Clawd for Windows: Invoke-WebRequest : Unable to connect")
+  expect(failed.text).toContain('type /pet again')
+  expect(fake.runs.some(r => script(r).startsWith('Start-Process'))).toBe(false)
+
+  // Not a GitHub release, or no proper SHA-256: never downloaded; /pet builds from source instead.
+  for (const bad of [
+    JSON.stringify({ buildId: 'x', url: 'https://example.com/ClawdPet.zip', sha256: SHA }),
+    JSON.stringify({ buildId: 'x', url: URL, sha256: 'not-a-hash' }),
+    'not json',
+  ]) {
+    fake.runs.length = 0
+    fake.release = bad
+    await $.command.run({ command: 'pet', args: '' })
+    expect(fake.runs.some(r => script(r).includes('Invoke-WebRequest'))).toBe(false)
+    expect(fake.runs.some(r => (r[r.length - 1] ?? '').endsWith('\\windows\\build.ps1'))).toBe(true)
+  }
 })

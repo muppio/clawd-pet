@@ -123,7 +123,7 @@ No. It's an unofficial fan project. See [Not affiliated](#not-affiliated).
 
 Clawd runs on Windows 10 and 11 (x64) too. It's a native Windows app with the same features as the Mac one.
 
-You need Claude Code installed and logged in. `/pet` works as on the Mac. It unpacks the Windows app that ships with the plugin into `%LOCALAPPDATA%\ClawdPet`, which needs nothing else, not even .NET. Until a release includes the Windows app, `/pet` builds it from `windows/` instead, which needs the .NET 8 SDK (`winget install Microsoft.DotNet.SDK.8`).
+You need Claude Code installed and logged in. `/pet` works as on the Mac. The first time, it downloads the Windows app (about 60 MB) from this project's GitHub release, checks it against the checksum pinned in the plugin, and unpacks it into `%LOCALAPPDATA%\ClawdPet`. Nothing else is needed, not even .NET.
 
 What's different from the Mac:
 

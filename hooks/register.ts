@@ -139,7 +139,12 @@ async function launch($: EngineInterface): Promise<string | undefined> {
   return opened.exitCode === 0 ? undefined : `Couldn't open Clawd Pet.app: ${opened.stderr.trim()}`
 }
 
-// MARK: Windows: ClawdPet.exe in %LOCALAPPDATA%\ClawdPet, from app/dist-windows/
+// MARK: Windows: ClawdPet.exe in %LOCALAPPDATA%\ClawdPet
+//
+// The Windows app is too big to ship inside the plugin (every install would carry it,
+// Macs included), so /pet downloads it from the project's GitHub release instead.
+// app/dist-windows/release.json pins that download: its URL, SHA-256 and build id.
+// A zip built locally with windows\release.ps1 (app/dist-windows/VERSION + zip) wins.
 
 /** A PowerShell string literal. */
 function psQuote(text: string): string {
@@ -183,36 +188,86 @@ async function winBuild($: EngineInterface): Promise<string | undefined> {
     : `Clawd's build failed:\n${tail}`
 }
 
-/** Unpacks the prebuilt app that ships with this mod (self-contained, no .NET needed). */
-async function winInstallPrebuilt($: EngineInterface): Promise<string | undefined> {
+/** The Windows app's download, as app/dist-windows/release.json pins it. */
+type WinRelease = { buildId: string; url: string; sha256: string; size: number }
+
+/** Reads release.json; anything that isn't a GitHub release download with a SHA-256 is ignored. */
+function parseRelease(text: string): WinRelease | undefined {
+  let r: Partial<WinRelease>
+  try {
+    r = JSON.parse(text) as Partial<WinRelease>
+  } catch {
+    return undefined
+  }
+  const ok =
+    typeof r.buildId === 'string' && r.buildId !== '' &&
+    typeof r.url === 'string' && /^https:\/\/github\.com\/[^/]+\/[^/]+\/releases\/download\//.test(r.url) &&
+    typeof r.sha256 === 'string' && /^[0-9a-f]{64}$/i.test(r.sha256)
+  return ok ? { buildId: r.buildId!, url: r.url!, sha256: r.sha256!, size: typeof r.size === 'number' ? r.size : 0 } : undefined
+}
+
+/** PowerShell lines that replace %LOCALAPPDATA%\ClawdPet with the contents of a zip. */
+function unpack(zip: string, dir: string): string[] {
+  return [
+    `Get-Process -Name ${PROCESS} -ErrorAction SilentlyContinue | Wait-Process -Timeout 5 -ErrorAction SilentlyContinue`,
+    `if (Test-Path -LiteralPath ${psQuote(dir)}) { Remove-Item -LiteralPath ${psQuote(dir)} -Recurse -Force }`,
+    `Expand-Archive -LiteralPath ${psQuote(zip)} -DestinationPath ${psQuote(dir)} -Force`,
+  ]
+}
+
+function lastLine(text: string): string {
+  return text.trim().split(/\r?\n/).filter(Boolean).pop() ?? ''
+}
+
+/** Unpacks a zip built on this PC with windows\release.ps1 (self-contained, no .NET needed). */
+async function winInstallPrebuilt($: EngineInterface, zip: string): Promise<string | undefined> {
   const dir = await winDir($)
-  const zip = `${$.plugin.root}\\app\\dist-windows\\ClawdPet-win-x64.zip`
+  await winQuit($)
+  const ran = await $.process.run(
+    powershell(["$ErrorActionPreference = 'Stop'", ...unpack(zip, dir)].join('; ')),
+    { timeoutMs: 180_000 },
+  )
+  return ran.exitCode === 0 ? undefined : `Couldn't install Clawd: ${lastLine(ran.stderr)}`
+}
+
+/** Downloads the Windows app from the GitHub release, checks its SHA-256, then unpacks it. */
+async function winDownload($: EngineInterface, release: WinRelease): Promise<string | undefined> {
+  const dir = await winDir($)
+  const zip = `${dir}-download.zip`
+  const size = release.size ? ` (${Math.round(release.size / 1_048_576)} MB)` : ''
+  $.ui.toast(`Downloading Clawd for Windows${size}…`)
   await winQuit($)
   const ran = await $.process.run(
     powershell(
       [
         "$ErrorActionPreference = 'Stop'",
-        `Get-Process -Name ${PROCESS} -ErrorAction SilentlyContinue | Wait-Process -Timeout 5 -ErrorAction SilentlyContinue`,
-        `if (Test-Path -LiteralPath ${psQuote(dir)}) { Remove-Item -LiteralPath ${psQuote(dir)} -Recurse -Force }`,
-        `Expand-Archive -LiteralPath ${psQuote(zip)} -DestinationPath ${psQuote(dir)} -Force`,
+        "$ProgressPreference = 'SilentlyContinue'", // Windows PowerShell's progress bar slows downloads to a crawl
+        '[Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12',
+        `Invoke-WebRequest -UseBasicParsing -Uri ${psQuote(release.url)} -OutFile ${psQuote(zip)}`,
+        `if ((Get-FileHash -LiteralPath ${psQuote(zip)} -Algorithm SHA256).Hash -ne ${psQuote(release.sha256)}) { Remove-Item -LiteralPath ${psQuote(zip)} -Force; throw 'The download did not match its checksum, so it was not installed.' }`,
+        ...unpack(zip, dir),
+        `Remove-Item -LiteralPath ${psQuote(zip)} -Force`,
       ].join('; '),
     ),
-    { timeoutMs: 180_000 },
+    { timeoutMs: 600_000 }, // the longest a process may run
   )
-  return ran.exitCode === 0 ? undefined : `Couldn't install Clawd: ${ran.stderr.trim()}`
+  return ran.exitCode === 0
+    ? undefined
+    : `Couldn't download Clawd for Windows: ${lastLine(ran.stderr) || 'the download failed'}\nCheck your internet connection, then type /pet again.`
 }
 
 async function winLaunch($: EngineInterface): Promise<string | undefined> {
   const dir = await winDir($)
   const exe = await winExe($)
-  const bundled = await readText($, `${$.plugin.root}\\app\\dist-windows\\VERSION`)
+  const dist = `${$.plugin.root}\\app\\dist-windows`
   const installed = await readText($, `${dir}\\build-id`)
-  if (bundled && installed !== bundled) {
-    const failed = await winInstallPrebuilt($)
-    if (failed) return failed
-  } else if (!(await $.fs.exists(exe).catch(() => false))) {
-    return winBuild($) // build.ps1 starts it when done
-  }
+  const local = await readText($, `${dist}\\VERSION`)
+  const release = local ? undefined : parseRelease(await readText($, `${dist}\\release.json`))
+  let failed: string | undefined
+  if (local && installed !== local) failed = await winInstallPrebuilt($, `${dist}\\ClawdPet-win-x64.zip`)
+  else if (release && installed !== release.buildId) failed = await winDownload($, release)
+  else if (!(await $.fs.exists(exe).catch(() => false))) return winBuild($) // build.ps1 starts it when done
+  if (failed) return failed
   const opened = await $.process.run(powershell(`Start-Process -FilePath ${psQuote(exe)}`))
   return opened.exitCode === 0 ? undefined : `Couldn't start Clawd: ${opened.stderr.trim()}`
 }

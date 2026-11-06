@@ -61,9 +61,10 @@ It builds a universal app (Apple silicon + Intel), remakes `app/dist/ClawdPet.zi
 
 The Windows port lives in `windows/`. It's C# on .NET 8 with WPF, and it mirrors the Mac app. [`windows/README.md`](windows/README.md) explains each file, how to build it, and what still needs checking.
 
-- On Windows, with the .NET 8 SDK (`winget install Microsoft.DotNet.SDK.8`), `.\windows\build.ps1` builds Clawd, installs him into `%LOCALAPPDATA%\ClawdPet` and starts him. `.\windows\release.ps1` remakes `app\dist-windows\ClawdPet-win-x64.zip` and its `VERSION`.
+- On Windows, with the .NET 8 SDK (`winget install Microsoft.DotNet.SDK.8`), `.\windows\build.ps1` builds Clawd, installs him into `%LOCALAPPDATA%\ClawdPet` and starts him. `.\windows\release.ps1` makes `app\dist-windows\ClawdPet-win-x64.zip` and its `VERSION`. `/pet` installs that local zip in place of the download, which is handy for testing. Both files are ignored by git.
 - On macOS or Linux, `dotnet build windows/ClawdPet.csproj` checks that it compiles. The app itself only runs on Windows.
-- The **Windows app** workflow (`.github/workflows/windows.yml`) builds the self-contained win-x64 zip on `windows-latest`. It runs on pushes to `main` and on pull requests that touch `windows/`, and uploads the zip as the `clawd-pet-win-x64` artifact. You can download it from the workflow run and try it. When a GitHub release is published, the workflow attaches the zip to it.
+- The **Windows app** workflow (`.github/workflows/windows.yml`) builds the self-contained win-x64 zip on `windows-latest`. It runs on pushes to `main` and on pull requests that touch `windows/`, and uploads the zip as the `clawd-pet-win-x64` artifact. You can download it from the workflow run and try it. When a GitHub release is published, the workflow attaches the zip and its `VERSION` to it.
+- **Shipping a Windows change:** publish a release, wait for the workflow to attach the zip, then run `node windows/pin-release.mjs <tag>`. It writes `app/dist-windows/release.json` (the download's URL, SHA-256, size and build id). Commit that file: `/pet` on Windows downloads only what it pins.
 
 **Windows users are a big help.** If you run Clawd on Windows, open an issue with what worked and what didn't. The "What to check on Windows" list in [`windows/README.md`](windows/README.md) says where to look first.
 

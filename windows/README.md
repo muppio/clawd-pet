@@ -1,6 +1,6 @@
 # Clawd Pet for Windows (developer notes)
 
-The same pet as `app/ClawdPet.swift`, ported to C# / .NET 8 WPF. Users never need this folder: `/pet` installs the prebuilt app from `app/dist-windows/`. This page is for building, releasing and finishing the port.
+The same pet as `app/ClawdPet.swift`, ported to C# / .NET 8 WPF. Users never need this folder: `/pet` downloads the prebuilt app from the GitHub release that `app/dist-windows/release.json` pins, and checks its SHA-256. This page is for building, releasing and finishing the port.
 
 ## Files
 

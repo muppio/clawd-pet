@@ -16,6 +16,7 @@ Clawd Pet is an unofficial fan project and isn't affiliated with Anthropic or Op
 
 - **The microphone**, only after you tap the mic button or the voice orb. It stops when you stop talking or tap again. Speech is turned into text by macOS's speech recognizer (on the Mac when macOS supports it) or by Windows' offline speech engine.
 - **Your own `claude` command.** Chats run it as you, from `~/.clawd-pet/chat`, with web search and web fetch as its only tools. Clawd Pet doesn't store an API key, and the app makes no network requests of its own.
+- **The Windows download.** On Windows, `/pet` downloads the app once from this repository's GitHub release and installs it only if its SHA-256 matches the one pinned in `app/dist-windows/release.json`.
 - **`clawdpet://` links.** `clawdpet://ask?q=…` sends its text to Claude as a question. The other links start voice, open a new chat or start a sparring match.
 - **Local files.** On a Mac, the app is installed to `~/Applications/Clawd Pet.app`, and its data lives in `~/.clawd-pet`. That includes `status.json`, which the mod writes on every turn with the start of your prompt, the current step and the project folder's name. On Windows, the app is in `%LOCALAPPDATA%\ClawdPet`, its data is in `%USERPROFILE%\.clawd-pet`, and `clawdpet://` and **Open at login** are per-user registry entries.
 - **Your screen**, only to find where the Codex pet's window is. Clawd Pet doesn't record or capture your screen.

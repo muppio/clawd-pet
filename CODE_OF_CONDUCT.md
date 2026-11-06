@@ -17,6 +17,6 @@ Maintainers can edit, hide or delete comments, close issues and pull requests, a
 
 ## Reporting a problem
 
-If someone makes you feel unwelcome or unsafe, contact the maintainer, muppio, privately through GitHub, for example with the contact details on muppio's GitHub profile. Please don't raise it in a public issue. Reports are kept private.
+If someone makes you feel unwelcome or unsafe, reach the maintainer through their GitHub account, [muppio](https://github.com/muppio). Keep the details out of public threads: open a short issue that mentions muppio and asks to talk, and the details can follow privately.
 
-You can also use GitHub's own **Report content** option on any comment. That goes to GitHub's staff.
+For anything that shouldn't wait, use GitHub's own **Report content** option on the comment. That goes straight to GitHub's staff.

@@ -2,3 +2,6 @@
 *.log
 .claude-plugin/types/
 .mcpb-cache/
+# A Windows build made locally with windows/release.ps1; releases ship it instead.
+app/dist-windows/ClawdPet-win-x64.zip
+app/dist-windows/VERSION
